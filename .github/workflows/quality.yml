@@ -1,0 +1,39 @@
+name: Refellow quality
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Governance files
+        run: node -e "for (const name of ['README.md','LICENSE','SUPPORT.md','SECURITY.md']) require('node:fs').accessSync(name)"
+      - name: Product checks when source is present
+        shell: bash
+        run: |
+          if test -f package.json; then
+            node scripts/build-collector.mjs
+            node server.mjs > /tmp/refellow-server.log 2>&1 &
+            server_process=$!
+            trap 'kill $server_process || true' EXIT
+            for attempt in 1 2 3 4 5; do
+              if curl --fail --silent http://127.0.0.1:5192/health; then break; fi
+              sleep 1
+            done
+            npm test
+            npm run build:pages
+          else
+            echo 'Bootstrap governance only; product source is not present yet.'
+          fi
