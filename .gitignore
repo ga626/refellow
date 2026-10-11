@@ -1,0 +1,24 @@
+# Private local history, credentials, media evidence and runtime output.
+/local/
+/docs/research/
+/docs/records/
+/deployment/
+/deployments/
+/部署/
+/public/assets/collector.zip
+/.21st/
+/.impeccable/*
+!/.impeccable/design.json
+!/.impeccable/config.json
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+*.bak
+*.key
+*.pem
+auth.json
+config.toml
+.DS_Store
+Thumbs.db
