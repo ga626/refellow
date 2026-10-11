@@ -94,7 +94,7 @@ function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=fa
 (() => {
  if(globalThis.__refellowFloating){globalThis.__refellowFloating.show();return;}
  let ui,recording=null,busy=false,closed=false,pendingShot=null;const lifetime=new AbortController();
- const request=async(action,data={})=>{const response=await chrome.runtime.sendMessage({type:'refellow/floating',action,pageURL:location.href,...data});if(!response?.ok)throw Error(response?.error||'连接已断开，请重新点击工具栏。');return response;};
+ const request=async(action,data={})=>{const response=await chrome.runtime.sendMessage({type:'refellow/floating',action,pageURL:location.href,...data});if(!response?.ok)throw Object.assign(Error(response?.error||'连接已断开，请重新点击工具栏。'),{code:response?.code});return response;};
  const sync=()=>ui.state({pending:busy,isRecording:!!recording,review:false});
  async function action(name){
   if(name==='hide'){ui.hide();return;}
@@ -111,7 +111,7 @@ function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=fa
    }
    if(name==='website'||name==='inbox')await request('website');
    if(name==='connect')await request('connect');
-  }catch(e){if(!closed){ui.resume();ui.open(true);ui.notice(e.message+(pendingShot?' 当前截图未丢失，点击截图可重试保存。':''),true);}}
+  }catch(e){if(e.code==='shot-invalid')pendingShot=null;if(!closed){ui.resume();ui.open(true);ui.notice(e.message+(pendingShot?' 当前截图未丢失，点击截图可重试保存。':''),true);}}
   finally{busy=false;sync();}
  }
  ui=mountFloatingCollector(document,{onAction:action,onPosition:position=>request('position',{position}).catch(e=>ui.notice(e.message,true))});globalThis.__refellowFloating=ui;
