@@ -3,6 +3,10 @@ import {captureCurrentPage} from './browser.js';
 import {fromBase64,validateBlob} from './shared/media-store.js';
 import {saveCapture} from './inbox.js';
 import {recipeFor} from './shared/recipes.js';
+import {cropScreenshot,pixelRegion} from './shared/capture-region.js';
+import {uploadCapture,CLOUD_ORIGIN,captureOrigin} from './cloud-connection.js';
+import {startTabRecording,stopTabRecording} from './native-recording.js';
+import {readPendingShot,removePendingShot,savePendingShot} from './pending-shots.js';
 const POSITION='refellow-collector/floating-position-v1';
 export async function trustedPage(api,sender,expectedURL){
   if(sender.id!==api.runtime.id||!sender.tab?.id||sender.frameId!==0)throw Error('拒绝非当前扩展顶层网页请求。');
@@ -12,6 +16,25 @@ export async function trustedPage(api,sender,expectedURL){
 }
 export async function handleFloatingMessage(message,sender,api=chrome,save=saveCapture){
   const page=await trustedPage(api,sender,message.pageURL);
+  if(message.action==='connect'){await api.tabs.create({url:api.runtime.getURL('connect.html')});return {};}
+  if(message.action==='website'){const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];await api.tabs.create({url:captureOrigin(connection?.origin||CLOUD_ORIGIN)+'/#collection'});return {};}
+  if(message.action==='record-start'){pixelRegion(message.region,1000,1000);return startTabRecording(api,sender,message);}
+  if(message.action==='record-stop'){await stopTabRecording(api,page.tabId,message.cancel===true);return {};}
+  if(message.action==='shot-start'){
+    const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];if(!connection?.token)throw Error('请先在网站登录并连接采集器。');
+    const [active]=await api.tabs.query({active:true,currentWindow:true});if(active?.id!==page.tabId)throw Error('请回到要截图的网页。');
+    const data=await api.tabs.captureVisibleTab(page.windowId,{format:'png'});await trustedPage(api,sender,page.url);
+    const [after]=await api.tabs.query({active:true,currentWindow:true});if(after?.id!==page.tabId)throw Error('截图时切换了网页，请重试。');
+    const ticket=crypto.randomUUID();await savePendingShot({ticket,data,page,connection,expires:Date.now()+5*60*1000});return {data,ticket};
+  }
+  if(message.action==='shot-cancel'){if((await readPendingShot(message.ticket))?.page.tabId===page.tabId)await removePendingShot(message.ticket);return {};}
+  if(message.action==='shot-save'){
+    const shot=await readPendingShot(message.ticket);if(!shot||shot.expires<Date.now()||shot.page.tabId!==page.tabId||shot.page.url!==page.url)throw Object.assign(Error('截图已过期，请重新框选。'),{code:'shot-invalid'});
+    const image=await cropScreenshot(fromBase64({id:'capture',mime:'image/png',data:shot.data.split(',')[1]}),message.region);
+    const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];
+    if(connection?.token!==shot.connection.token){await removePendingShot(message.ticket);throw Object.assign(Error('连接的账户已改变，请重新截图。'),{code:'shot-invalid'});}
+    const result=await uploadCapture(connection,{...page,captureMethod:'region-screenshot'},image,'shot-'+message.ticket);await removePendingShot(message.ticket);return result;
+  }
   if(message.action==='preferences')return {position:(await api.storage.local.get(POSITION))[POSITION]||null};
   if(message.action==='position'){
     const p=message.position;if(!p||!['left','right'].includes(p.side)||!Number.isFinite(p.ratio)||p.ratio<0||p.ratio>1)throw Error('悬浮位置无效。');

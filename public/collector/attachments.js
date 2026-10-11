@@ -1,6 +1,6 @@
 import {safeURL as cleanURL} from '../lib.js';
 function referenceKey(value){const u=new URL(cleanURL(value));for(const key of [...u.searchParams.keys()])if(/^(utm_|fbclid$|gclid$)/i.test(key))u.searchParams.delete(key);u.searchParams.sort();return u.href;}
-export const MEDIA_LIMIT = 12 * 1024 * 1024;
+export const MEDIA_LIMIT = 64 * 1024 * 1024;
 export const attachmentKinds = ['image', 'video', 'prompt', 'code', 'parameters', 'link', 'note'];
 export const attachmentLabels = {image:'截图',video:'短录制',prompt:'原提示词',code:'代码资料',parameters:'效果参数',link:'官方入口',note:'补充说明'};
 const text = (v, n) => String(v ?? '').slice(0, n);
@@ -11,11 +11,11 @@ export function normalizeAttachment(a) {
   if (!validId(id)) throw Error('附件编号无效。');
   const out = {id, kind:a.kind, name:text(a.name || attachmentLabels[a.kind],120)};
   if (a.kind === 'image' || a.kind === 'video') {
-    if (!validId(a.mediaId) || !Number.isInteger(a.size) || a.size < 1 || a.size > MEDIA_LIMIT) throw Error('媒体附件无效或超过12MB。');
+    if (!validId(a.mediaId) || !Number.isInteger(a.size) || a.size < 1 || a.size > MEDIA_LIMIT) throw Error('媒体附件无效或超过64MB。');
     const allowed = a.kind === 'image' ? /^image\/(png|jpeg|webp)$/ : /^video\/(webm|mp4)(;codecs=[a-zA-Z0-9., -]+)?$/;
     if (!allowed.test(a.mime || '')) throw Error('媒体格式不受支持。');
     Object.assign(out, {mediaId:a.mediaId, mime:a.mime, size:a.size});
-    if (a.kind === 'video') out.duration = Math.max(0, Math.min(120, Number(a.duration) || 0));
+    if (a.kind === 'video') out.duration = Math.max(0, Number(a.duration) || 0);
   } else if (a.kind === 'link') out.url = cleanURL(text(a.url,2049));
   else {
     out.content = text(a.content,30000);

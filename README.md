@@ -1,13 +1,19 @@
 # Refellow · 参伴
 
-网站黄页、个人参考收藏夹和项目参考工作台。先保存画面和出处，再整理借鉴意图，将实际媒体交给 AI。
+网站黄页、个人参考收藏夹和项目参考工作台。先保存画面和具体网址，再整理借鉴意图、图片、录像与资料。
 
-免费使用，原创代码采用 [MIT](LICENSE) 许可，公开仓库 ga626/refellow。第三方画面与品牌权利仍属原权利人。支持：18703937308@163.com。
+免费使用，原创代码采用[MIT](LICENSE)许可。公开仓库 ga626/refellow；发布者 ga626；支持：18703937308@163.com。第三方画面与品牌权利仍属原权利人。
 
-原生 JavaScript/CSS、Node >=20、ES modules，无第三方运行依赖，无需 npm install。运行 start.cmd 或 node server.mjs，默认入口 http://127.0.0.1:5192/。npm test 验证；node scripts/build-collector.mjs 构建扩展；npm run build:pages 构建静态白名单包。
+原生 JavaScript/CSS、ES modules，无第三方运行依赖。开发及测试使用 Node >=22.13（SQLite 开发适配器）。日常开发入口固定为 http://127.0.0.1:5192/；运行 start.cmd。公网入口仍为 https://lingganji.pages.dev/。
 
-采集器0.4.0：工具栏授权后显示可拖动贴边圆钮，点击展开／收起，隐藏后工具栏恢复。用户主动截图或静音录制，再次点击停止，最多120秒／12MB。数据本地保存，网站与扩展通过含媒体文件交换，不自动同步。
+0.5候选支持框选／整个当前网页可见画面截图、静音区域／整个标签页可见画面录制。用户点击工具栏后显示可拖动悬浮圆钮；录制期间隐藏控件，点击浏览器工具栏图标停止并上传。无需系统共享目标选择，不录制桌面或音频。截图确认和录像停止后直接保存到连接账户的个人空间；没有120秒时长限制，达到媒体缓冲容量会停止并尝试保存。
 
-public/collector 是共享源，采集器/shared 和 floating.js 为派生。local、部署和历史研究不进入源码库。开发包不是正式安装候选；正式候选绑定真实 PR、干净提交和摘要，完成真实 Edge 验收后才发布。
+网站以用户名＋密码登录，账户间隔离。账户菜单生成一次性连接码；扩展仅获得采集权限，不能管理工作台。恢复码用于找回密码；可撤销设备或删除账户。新云端不自动上传或清除旧版浏览器收藏，旧收藏可以在原地址的使用与备份页导出。
 
-Edge 草稿已建立，尚未提交审核，真实扩展权限与外站录制待验。配套网站 https://lingganji.pages.dev/ 保持原入口，新版尚未部署。参阅[当前状态](docs/release-status.md)与[上架材料](docs/edge-store/申报材料.md)。
+Cloudflare Pages _worker.js 提供 API，D1 保存账户、工作台和分块媒体。需要专用 DB 绑定及服务端 AUTH_PEPPER；未配置时明确返回503，不能冒充保存成功。免费首版有容量和请求额度，超额提示，不自动启用付费服务。部署、测试和限制见[云端部署说明](docs/cloud-deployment.md)。
+
+本地账户测试需要在启动进程设置 REFELLOW_LOCAL_CLOUD=1；此时仅使用本机专用 QA SQLite，界面明确标记为测试空间，不等于跨电脑云端。开发服务器的本机资料、数据库和秘密都位于 local，不进入制品。
+
+npm test 验证；npm run build:pages 生成白名单 Pages 包；node scripts/build-collector.mjs 同步共享源并生成扩展开发包。public/collector 是共享模块源，采集器/shared 和 floating.js 是派生副本。普通开发包不能作为商城候选；正式候选绑定真实 PR、干净提交和摘要，公开前还须同一制品的云端及真实 Edge 验收。
+
+Edge 草稿已建，0.4真实加载后用户反馈核心采集行为不合需求；当前0.5正在修正、冻结和验证。尚未正式发版、更新生产网站或提交商店。参阅[发布状态](docs/release-status.md)和[申报材料](docs/edge-store/申报材料.md)。

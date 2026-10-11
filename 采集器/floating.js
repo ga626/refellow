@@ -7,18 +7,18 @@ function dockPosition(raw={},viewport={width:800,height:600}){
   const ratio=Number.isFinite(raw.ratio)?Math.max(0,Math.min(1,raw.ratio)):.64;
   return {side,ratio,x:side==='left'?8:Math.max(0,width-FLOAT_SIZE-8),y:Math.max(8,Math.min(height-FLOAT_SIZE-8,ratio*(height-FLOAT_SIZE)))};
 }
-function mountFloatingCollector(doc,{position={},onAction=()=>{},onPosition=()=>{}}={}){
+function mountFloatingCollector(doc,{position={},onAction=()=>{},onPosition=()=>{},inspectable=false}={}){
   const win=doc.defaultView,abort=new AbortController();
   const host=doc.createElement('div');host.setAttribute('data-refellow-floating','');
   host.style.cssText='all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;color-scheme:light!important;';
-  const root=host.attachShadow({mode:'closed'});
+  const root=host.attachShadow({mode:inspectable?'open':'closed'});
   const icons={shot:'<path d="M8 5l1-2h6l1 2h4v14H4V5z"/><circle cx="12" cy="12" r="4"/>',record:'<rect x="3" y="5" width="13" height="14" rx="3"/><path d="M16 9l5-3v12l-5-3"/>',inbox:'<path d="M4 4h16v16H4zM4 13h5l1 3h4l1-3h5"/>',hide:'<path d="M3 3l18 18M10 5c6-1 10 7 10 7l-3 3M14 19c-6 1-10-7-10-7l3-3"/>',check:'<path d="M5 12l4 4L19 6"/>',close:'<path d="M6 6l12 12M18 6L6 18"/>'};
   const icon=name=>'<svg viewBox="0 0 24 24" aria-hidden="true">'+icons[name]+'</svg>';
-  root.innerHTML='<div class="dock"><button class="orb" aria-label="参伴采集菜单；可拖动或用方向键移动" aria-expanded="false" aria-controls="refellow-menu"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5"/><rect x="18" y="6" width="8" height="8" rx="1.5"/><rect x="6" y="18" width="8" height="8" rx="1.5"/><rect x="18" y="18" width="8" height="8" rx="1.5"/></svg><span class="record-led" hidden></span></button><section class="menu" id="refellow-menu" aria-label="参伴采集" hidden><header><strong>参伴</strong><span>随看随收</span><button class="close" aria-label="收起菜单">'+icon('close')+'</button></header><div class="actions"><button data-action="shot">'+icon('shot')+'<span>截一张<small>当前可见画面</small></span></button><button data-action="record">'+icon('record')+'<span class="record-label">录一段<small>点击开始，再点停止</small></span><output class="timer" hidden>00:00</output></button></div><p class="status" role="status" aria-live="polite" hidden></p><section class="review" hidden><video controls playsinline muted></video><label><input type="checkbox">确认画面和来源，可保存</label><div class="review-actions"><button data-action="save-record">'+icon('check')+'保存到收件箱</button><button data-action="discard-record">丢弃</button></div></section><button class="cancel" data-action="cancel-record" hidden>取消本次录制</button><footer><button data-action="inbox">'+icon('inbox')+'收件箱</button><button data-action="hide">'+icon('hide')+'隐藏</button></footer><p class="privacy">仅本地保存 · 不录音</p></section></div>';
+  root.innerHTML='<div class="dock"><button class="orb" aria-label="参伴采集菜单；可拖动或用方向键移动" aria-expanded="false" aria-controls="refellow-menu"><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5"/><rect x="18" y="6" width="8" height="8" rx="1.5"/><rect x="6" y="18" width="8" height="8" rx="1.5"/><rect x="18" y="18" width="8" height="8" rx="1.5"/></svg><span class="record-led" hidden></span></button><section class="menu" id="refellow-menu" aria-label="参伴采集" hidden><header><strong>参伴</strong><span>随看随收</span><button class="close" aria-label="收起菜单">'+icon('close')+'</button></header><div class="actions"><button data-action="shot">'+icon('shot')+'<span>截一张<small>框选或整个可见画面</small></span></button><button data-action="record">'+icon('record')+'<span class="record-label">录一段<small>点击开始，再点停止</small></span><output class="timer" hidden>00:00</output></button></div><p class="status" role="status" aria-live="polite" hidden></p><section class="review" hidden><video controls playsinline muted></video><label><input type="checkbox">确认画面和来源，可保存</label><div class="review-actions"><button data-action="save-record">'+icon('check')+'保存到我的收藏</button><button data-action="connect">连接账户</button><button data-action="discard-record">丢弃</button></div></section><button class="cancel" data-action="cancel-record" hidden>取消本次录制</button><footer><button data-action="website">'+icon('inbox')+'收藏</button><button data-action="connect">连接账户</button><button data-action="hide">'+icon('hide')+'隐藏</button></footer><p class="privacy">保存到个人网站空间 · 不录音</p></section></div>';
   const sheet=new win.CSSStyleSheet();sheet.replaceSync(FLOAT_CSS);root.adoptedStyleSheets=[sheet];
   doc.documentElement.append(host);
   const $=s=>root.querySelector(s),dock=$('.dock'),orb=$('.orb'),menu=$('.menu');
-  let saved=position,drag=null,suppressClick=false,opened=false,busy=false,recording=false,hasReview=false,hidden=false;
+  let saved=position,drag=null,suppressClick=false,opened=false,busy=false,recording=false,hasReview=false,hidden=false,suspended=false;
   function place(raw=saved){saved=raw;const p=dockPosition(saved,{width:win.innerWidth,height:win.innerHeight});dock.style.left=p.x+'px';dock.style.top=p.y+'px';dock.dataset.side=p.side;layout();return p;}
   function layout(){menu.style.top='auto';menu.style.bottom='0';if(!opened)return;const bounds=menu.getBoundingClientRect();if(bounds.top<8){menu.style.bottom='auto';menu.style.top='0';}const b=menu.getBoundingClientRect();if(b.bottom>win.innerHeight-8){menu.style.top=(win.innerHeight-8-b.height-dock.getBoundingClientRect().top)+'px';menu.style.bottom='auto';}}
   function open(value= !opened){if(hidden)return;opened=value;menu.hidden=!value;orb.setAttribute('aria-expanded',String(value));dock.dataset.open=String(value);if(value){layout();}else orb.focus({preventScroll:true});}
@@ -38,7 +38,7 @@ function mountFloatingCollector(doc,{position={},onAction=()=>{},onPosition=()=>
   win.addEventListener('resize',()=>place(),{signal:abort.signal});
   function state({pending=busy,isRecording=recording,review=hasReview}={}){busy=pending;recording=isRecording;hasReview=review;dock.dataset.recording=String(recording);$('.record-led').hidden=!recording;$('.timer').hidden=!recording;$('.cancel').hidden=!recording;$('.record-label').innerHTML=recording?'停止录制<small>再点一次，留下这段</small>':'录一段<small>点击开始，再点停止</small>';for(const b of menu.querySelectorAll('[data-action]'))b.disabled=busy||(recording&& !['record','cancel-record'].includes(b.dataset.action))||(hasReview&&['record','shot','hide'].includes(b.dataset.action));$('.review-actions button').disabled=busy||!$('.review input').checked;layout();}
   place();
-  return {host,open,notice,state,position:()=>saved,setPosition:place,show(){hidden=false;host.style.setProperty('visibility','visible','important');place();},hide(){if(recording||busy||hasReview){notice('请先结束录制并保存或丢弃画面。');return false;}open(false);hidden=true;host.style.setProperty('visibility','hidden','important');return true;},tick(seconds){const value=Math.floor(seconds);$('.timer').textContent=String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');},preview(url){$('.review input').checked=false;$('.review video').src=url;$('.review').hidden=false;hasReview=true;state({review:true});open(true);},clearPreview(){const v=$('.review video');v.pause();v.removeAttribute('src');v.load();$('.review').hidden=true;hasReview=false;state({review:false});},async withoutOverlay(fn){const previous=host.style.visibility;host.style.setProperty('visibility','hidden','important');try{await new Promise((resolve,reject)=>{const timeout=win.setTimeout(()=>reject(Error('网页未能刷新画面，请回到当前标签页再截图。')),1500);win.requestAnimationFrame(()=>win.requestAnimationFrame(()=>{win.clearTimeout(timeout);resolve();}));});if(doc.hidden)throw Error('请回到当前标签页再截图。');return await fn();}finally{host.style.setProperty('visibility',hidden?'hidden':previous||'visible','important');}},dispose(){abort.abort();$('.review video').pause();host.remove();}};
+  return {host,open,notice,state,suspend(){suspended=true;host.style.setProperty("visibility","hidden","important");},resume(){suspended=false;host.style.setProperty("visibility",hidden?"hidden":"visible","important");},position:()=>saved,setPosition:place,show(){hidden=false;host.style.setProperty('visibility','visible','important');place();},hide(){if(recording||busy||hasReview){notice('请先结束录制并保存或丢弃画面。');return false;}open(false);hidden=true;host.style.setProperty('visibility','hidden','important');return true;},tick(seconds){const value=Math.floor(seconds);$('.timer').textContent=String(Math.floor(value/60)).padStart(2,'0')+':'+String(value%60).padStart(2,'0');},preview(url){$('.review input').checked=false;$('.review video').src=url;$('.review').hidden=false;hasReview=true;state({review:true});open(true);},clearPreview(){const v=$('.review video');v.pause();v.removeAttribute('src');v.load();$('.review').hidden=true;hasReview=false;state({review:false});},async withoutOverlay(fn){const previous=host.style.visibility;host.style.setProperty('visibility','hidden','important');try{await new Promise((resolve,reject)=>{const timeout=win.setTimeout(()=>reject(Error('网页未能刷新画面，请回到当前标签页再截图。')),1500);win.requestAnimationFrame(()=>win.requestAnimationFrame(()=>{win.clearTimeout(timeout);resolve();}));});if(doc.hidden)throw Error('请回到当前标签页再截图。');return await fn();}finally{host.style.setProperty('visibility',hidden||suspended?'hidden':previous||'visible','important');}},dispose(){abort.abort();$('.review video').pause();host.remove();}};
 }
 const FLOAT_CSS=String.raw`
 :host{all:initial;--blue:#2348f4;--ink:#17202c;--muted:#566272;--line:#e0e5ed;font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif;color:var(--ink);color-scheme:light}
@@ -49,83 +49,75 @@ const FLOAT_CSS=String.raw`
 .actions{display:grid;gap:6px}.actions button{min-height:58px;background:#f3f5fa;display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:9px;text-align:left;transition:background 100ms,transform 160ms}.actions button:hover:not(:disabled){background:#eef2ff;color:var(--blue)}.actions small{display:block;font-size:11px;color:var(--muted);margin-top:2px}.actions span{font-size:14px;font-weight:600}.timer{margin-left:auto;font-size:13px;font-variant-numeric:tabular-nums}[data-recording=true] [data-action=record]{background:#fff0f2;color:#ad1e37}[data-recording=true] [data-action=record] small{color:#ad1e37}.status{font-size:12px;line-height:1.65;background:#eef2ff;color:#183bd4;border-radius:7px;padding:10px;margin:10px 0;overflow-wrap:anywhere}.status[data-error=true]{color:#9d2137;background:#fff0f2}.review{margin:12px 0}.review video{width:100%;max-height:150px;background:#f3f5fa;border-radius:8px}.review label{display:flex;align-items:flex-start;gap:6px;font-size:11px;margin:8px 0;color:var(--muted)}input{accent-color:var(--blue)}.review-actions{display:flex;gap:6px;flex-wrap:wrap}.review-actions button{display:flex;gap:5px;align-items:center;min-height:40px;padding:8px;border-radius:7px;background:#f3f5fa;font-size:12px}.review-actions button:first-child:not(:disabled){background:var(--blue);color:#fff}.review-actions svg{width:16px;height:16px}.cancel{font-size:12px;color:#ad1e37;background:transparent;min-height:40px;width:100%}footer{display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:12px;padding-top:8px}footer button{display:flex;align-items:center;gap:6px;font-size:12px;background:transparent;min-height:36px;padding:6px;color:var(--muted)}footer svg{width:16px;height:16px}.privacy{font-size:10px;color:var(--muted);margin:8px 0 0;text-align:center}@keyframes unfold{from{opacity:.6;transform:translateX(3px) scale(.98)}to{opacity:1;transform:none}}@keyframes pulse{50%{opacity:.4;transform:scale(.8)}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}button:active:not(:disabled){transform:none}}
 `;
 
-// 用户主动选择共享目标、手动停止；上限与工作台的视频合同相同。
-const RECORDING_LIMIT_SECONDS = 120;
-async function startSilentRecording({onStatus=()=>{},onProgress=()=>{},limit=RECORDING_LIMIT_SECONDS,display=()=>navigator.mediaDevices.getDisplayMedia({video:{frameRate:12},audio:false}),Recorder=MediaRecorder,now=()=>Date.now()}={}){
-  if(!Number.isFinite(limit)||limit<=0||limit>RECORDING_LIMIT_SECONDS)throw Error('录制保护上限应在120秒以内。');
-  const stream=await display();
-  const release=()=>stream.getTracks().forEach(t=>t.stop());
-  for(const t of stream.getAudioTracks())t.stop();
-  const mime=['video/webm;codecs=vp8','video/webm','video/mp4'].find(t=>Recorder.isTypeSupported(t));
-  if(!mime){release();throw Error('当前浏览器没有可用录制格式；请改用截图。');}
-  let recorder;try{recorder=new Recorder(stream,{mimeType:mime,videoBitsPerSecond:700000});}catch(err){release();throw err;}
-  const chunks=[];let bytes=0,discard=false,timer,ticker,started,settled=false,stopping=false;
-  const elapsed=()=>Math.min(limit,Math.max(0,(now()-started)/1000));
-  const cleanup=()=>{clearTimeout(timer);clearInterval(ticker);release();};
-  const done=new Promise((resolve,reject)=>{
-    recorder.ondataavailable=e=>{if(settled||!e.data.size)return;chunks.push(e.data);bytes+=e.data.size;if(bytes>12*1024*1024){discard=true;onStatus('视频超过12MB，本次已取消，请录更短片段。');stop();}};
-    recorder.onerror=()=>{if(settled)return;settled=true;discard=true;try{stop();}finally{cleanup();reject(Error('录制失败，请重试或改用截图。'));}};
-    recorder.onstop=()=>{if(settled)return;settled=true;const duration=elapsed();cleanup();if(discard){resolve(null);return;}if(!bytes){reject(Error('没有录到视频内容，请重新选择共享网页。'));return;}resolve({blob:new Blob(chunks,{type:mime}),duration});};
-  });
-  function stop(){if(!stopping&&recorder.state!=='inactive'){stopping=true;recorder.stop();}}
-  function cancel(){discard=true;stop();}
-  stream.getVideoTracks()[0]?.addEventListener('ended',stop,{once:true});
-  try{started=now();recorder.start(250);}catch(err){cleanup();throw err;}
-  timer=setTimeout(()=>{onStatus('已到录制保护上限，正在完成录制。');stop();},limit*1000);
-  ticker=setInterval(()=>onProgress({duration:elapsed(),bytes}),250);
-  onProgress({duration:0,bytes:0});onStatus('正在录制，再点一次按钮即可停止。');
-  return {stop,cancel,done};
+function captureRegion(rect,viewport){
+  if(!viewport||!Number.isFinite(viewport.width)||!Number.isFinite(viewport.height)||viewport.width<=0||viewport.height<=0)throw Error('页面尺寸无效。');
+  if(!rect)return {x:0,y:0,width:1,height:1};
+  if(!['x','y','width','height'].every(k=>Number.isFinite(rect[k])))throw Error('框选坐标无效。');
+  const x=Math.max(0,Math.min(viewport.width,rect.x)),y=Math.max(0,Math.min(viewport.height,rect.y));
+  const width=Math.min(viewport.width-x,rect.width),height=Math.min(viewport.height-y,rect.height);
+  if(width<8||height<8)throw Error('请拖出至少8像素的区域。');
+  return {x:x/viewport.width,y:y/viewport.height,width:width/viewport.width,height:height/viewport.height};
+}
+function pixelRegion(region,width,height){
+  if(!Number.isInteger(width)||!Number.isInteger(height)||width<1||height<1||!region||!['x','y','width','height'].every(k=>Number.isFinite(region[k]))||region.x<0||region.y<0||region.width<=0||region.height<=0||region.x+region.width>1.000001||region.y+region.height>1.000001)throw Error('画面裁切范围无效。');
+  const x=Math.floor(region.x*width),y=Math.floor(region.y*height);
+  return {x,y,width:Math.max(1,Math.min(width-x,Math.round(region.width*width))),height:Math.max(1,Math.min(height-y,Math.round(region.height*height)))};
+}
+async function cropScreenshot(blob,region,{decode=createImageBitmap,Canvas=OffscreenCanvas}={}){
+  const image=await decode(blob);
+  try{const r=pixelRegion(region,image.width,image.height),canvas=new Canvas(r.width,r.height);canvas.getContext('2d').drawImage(image,r.x,r.y,r.width,r.height,0,0,r.width,r.height);return await canvas.convertToBlob({type:'image/png'});}finally{image.close();}
+}
+function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=false}={}){
+ return new Promise((resolve,reject)=>{
+  const win=doc.defaultView,viewport={width:win.innerWidth,height:win.innerHeight},previous=doc.activeElement,events=new AbortController();
+  const host=doc.createElement('div');host.style.cssText='all:initial!important;position:fixed!important;inset:0!important;z-index:2147483647!important;';
+  const root=host.attachShadow({mode:inspectable?'open':'closed'});const template='<style>:host{font-family:Segoe UI,Microsoft YaHei,sans-serif;color-scheme:light}.surface{position:fixed;inset:0;touch-action:none;cursor:crosshair;background:#18243b66;user-select:none}.surface img{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.box{position:absolute;border:2px solid #2455e8;box-sizing:border-box;box-shadow:0 0 0 99999px #18243b66;pointer-events:none}.bar{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:8px;align-items:center;background:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 4px 20px #17202c26;cursor:default;max-width:calc(100vw - 32px);box-sizing:border-box;flex-wrap:wrap;justify-content:center}.bar span{font:13px Segoe UI,Microsoft YaHei,sans-serif;color:#18243b}.bar button{font:13px Segoe UI,Microsoft YaHei,sans-serif;min-height:36px;border:0;border-radius:6px;padding:8px 12px;background:#f3f5fa;color:#18243b;cursor:pointer}.bar button.primary{background:#2455e8;color:white}.bar button:focus-visible{outline:2px solid #18243b;outline-offset:2px}.bar button:disabled{opacity:.45;cursor:default}[hidden]{display:none!important}@media(prefers-reduced-motion:reduce){*{transition:none!important}}</style><div class="surface" tabindex="-1" role="dialog" aria-modal="true" aria-label="选择采集区域"><div class="box" hidden></div><div class="bar"><span>拖动框选 · Esc取消</span><button data-do="all">整个可见画面</button><button class="primary" data-do="confirm" disabled></button><button data-do="cancel" aria-label="取消采集">取消</button></div></div>';
+  root.innerHTML=template.slice(template.indexOf('</style>')+8);const sheet=new win.CSSStyleSheet();sheet.replaceSync(template.slice(7,template.indexOf('</style>')));root.adoptedStyleSheets=[sheet];
+  const surface=root.querySelector('.surface'),box=root.querySelector('.box'),confirm=root.querySelector('[data-do=confirm]'),bar=root.querySelector('.bar');confirm.textContent=kind==='录制'?'开始录制':'保存截图';
+  if(image){const img=doc.createElement('img');img.src=image;img.alt='待截取的当前画面';surface.prepend(img);}
+  let start,rect,finished=false;
+  const finish=(result,error)=>{if(finished)return;finished=true;events.abort();signal?.removeEventListener('abort',cancel);host.remove();previous?.focus?.({preventScroll:true});error?reject(error):resolve(result);};
+  const cancel=()=>finish(null);
+  const paint=()=>{surface.style.background='transparent';box.hidden=false;Object.assign(box.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});confirm.disabled=rect.width<8||rect.height<8;root.querySelector('.bar span').textContent=Math.round(rect.width)+' × '+Math.round(rect.height)+' · 拖动重新选择';};
+  surface.addEventListener('pointerdown',e=>{if(e.button!==0||e.composedPath().includes(bar))return;e.preventDefault();start={x:Math.max(0,Math.min(viewport.width,e.clientX)),y:Math.max(0,Math.min(viewport.height,e.clientY))};surface.setPointerCapture(e.pointerId);rect={x:start.x,y:start.y,width:0,height:0};paint();},{signal:events.signal});
+  surface.addEventListener('pointermove',e=>{if(!start)return;const x=Math.max(0,Math.min(viewport.width,e.clientX)),y=Math.max(0,Math.min(viewport.height,e.clientY));rect={x:Math.min(x,start.x),y:Math.min(y,start.y),width:Math.abs(x-start.x),height:Math.abs(y-start.y)};paint();},{signal:events.signal});
+  surface.addEventListener('pointerup',e=>{if(surface.hasPointerCapture(e.pointerId))surface.releasePointerCapture(e.pointerId);start=null;},{signal:events.signal});
+  surface.addEventListener('pointercancel',()=>{start=null;},{signal:events.signal});
+  bar.addEventListener('click',e=>{const b=e.target.closest('[data-do]');if(!b||b.disabled)return;if(b.dataset.do==='cancel')cancel();else finish({region:captureRegion(b.dataset.do==='all'?null:rect,viewport),viewport});},{signal:events.signal});
+  doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancel();}else if(e.key==='Enter'&&!confirm.disabled){e.preventDefault();finish({region:captureRegion(rect,viewport),viewport});}else if(e.key==='Tab'){const buttons=[...bar.querySelectorAll('button')].filter(b=>!b.disabled),i=buttons.indexOf(root.activeElement);e.preventDefault();buttons[(i+(e.shiftKey?-1:1)+buttons.length)%buttons.length]?.focus();}},{capture:true,signal:events.signal});
+  win.addEventListener('resize',()=>finish(null,Error('页面尺寸改变，请重新框选。')),{signal:events.signal});win.addEventListener('pagehide',cancel,{once:true,signal:events.signal});
+  if(signal?.aborted){cancel();return;}signal?.addEventListener('abort',cancel,{once:true});doc.documentElement.append(host);surface.focus({preventScroll:true});
+ });
 }
 
-// 此源由构建脚本和共享模块打包为单个ISOLATED内容脚本；不使用网页消息桥。
+// 由共享源打包为单个 ISOLATED 内容脚本。
 (() => {
-  if(globalThis.__refellowFloating){globalThis.__refellowFloating.show();return;}
-  let ui,session,result,previewURL,closed=false,busy=false,recordURL;
-  const request=async(action,data={})=>{const response=await chrome.runtime.sendMessage({type:'refellow/floating',action,...data});if(!response?.ok)throw Error(response?.error||'采集器连接已断开，请重新点击工具栏图标。');return response;};
-  const base64=blob=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('录像读取失败，请重试。'));reader.readAsDataURL(blob);});
-  const clear=()=>{result=null;ui.clearPreview();if(previewURL)URL.revokeObjectURL(previewURL);previewURL=null;};
-  const sync=(pending=busy)=>ui.state({pending,isRecording:!!session,review:!!result});
-  async function action(name){
-    if(name==='hide'){ui.hide();return;}
-    if(name==='discard-record'){clear();ui.notice('本段已丢弃。');return;}
-    if(name==='cancel-record'){if(session){busy=true;sync();session.cancel();}return;}
-    if(name==='record'&&session){busy=true;sync();session.stop();return;}
-    if(busy)return;
-    if(name==='record'){
-      if(result)throw Error('请先保存或丢弃这段录像。');
-      busy=true;sync();ui.notice('请选择要记录的共享网页。单段最多2分钟 / 12MB。');
-      const startedURL=location.href;
-      try{
-        // getDisplayMedia必须在本次用户手势中调用，不能等待后台往返。
-        session=await startSilentRecording({onStatus:t=>ui.notice(t),onProgress:p=>ui.tick(p.duration)});
-        if(closed){session.cancel();await session.done;return;}
-        recordURL=startedURL;busy=false;sync();
-        const recording=await session.done;session=null;
-        if(closed)return;
-        if(!recording){ui.notice('录制已取消，没有保存。');return;}
-        if(location.href!==startedURL){ui.notice('录制期间页面网址改变，本段已丢弃，请在新页面重录。',true);return;}
-        result=recording;previewURL=URL.createObjectURL(result.blob);ui.preview(previewURL);
-        ui.notice('已录下 '+result.duration.toFixed(1)+' 秒。请核对画面，再保存。');
-      }catch(e){session=null;ui.notice(e.name==='NotAllowedError'?'共享已取消或权限未允许；可以重试。':e.message,true);}
-      finally{busy=false;sync();}
-      return;
-    }
-    busy=true;sync();
-    try{
-      if(name==='shot'){ui.notice('正在保存当前可见画面…');await ui.withoutOverlay(()=>request('shot',{pageURL:location.href}));ui.notice('截图已收下。回收件箱再整理。');}
-      if(name==='save-record'){
-        if(!result)throw Error('没有可保存的录像。');
-        ui.notice('正在保存录像…');await request('save-record',{pageURL:recordURL,media:{mime:result.blob.type,data:await base64(result.blob),duration:result.duration}});clear();ui.notice('录像已收下，仍保留原网址。');
-      }
-      if(name==='inbox'){await request('inbox');ui.open(false);}
-    }catch(e){ui.notice(e.message,true);}
-    finally{busy=false;sync();}
-  }
-  ui=mountFloatingCollector(document,{onAction:action,onPosition:position=>request('position',{position}).catch(e=>ui.notice('位置没有记住：'+e.message,true))});
-  globalThis.__refellowFloating=ui;
-  chrome.runtime.onMessage.addListener(message=>{if(message?.type==='refellow/show'){ui.show();return;}});
-  request('preferences').then(({position})=>{if(position&&!closed)ui.setPosition(position);}).catch(e=>ui.notice(e.message,true));
-  window.addEventListener('pagehide',()=>{closed=true;session?.cancel();if(previewURL)URL.revokeObjectURL(previewURL);ui.dispose();delete globalThis.__refellowFloating;},{once:true});
+ if(globalThis.__refellowFloating){globalThis.__refellowFloating.show();return;}
+ let ui,recording=null,busy=false,closed=false,pendingShot=null;const lifetime=new AbortController();
+ const request=async(action,data={})=>{const response=await chrome.runtime.sendMessage({type:'refellow/floating',action,pageURL:location.href,...data});if(!response?.ok)throw Error(response?.error||'连接已断开，请重新点击工具栏。');return response;};
+ const sync=()=>ui.state({pending:busy,isRecording:!!recording,review:false});
+ async function action(name){
+  if(name==='hide'){ui.hide();return;}
+  if(name==='record'&&recording||name==='cancel-record'){await request('record-stop',{cancel:name==='cancel-record'});return;}
+  if(busy)return;busy=true;sync();
+  try{
+   if(name==='shot'){
+    if(!pendingShot){await ui.withoutOverlay(async()=>{const shot=await request('shot-start');const selected=await selectCaptureRegion(document,{image:shot.data,kind:'截图',signal:lifetime.signal});if(!selected){await request('shot-cancel',{ticket:shot.ticket});return;}pendingShot={ticket:shot.ticket,region:selected.region};});}
+    if(pendingShot){ui.notice('正在保存到网站…');await request('shot-save',pendingShot);pendingShot=null;ui.notice('截图已保存到网站“我的收藏”。');}
+   }
+   if(name==='record'){
+    await ui.withoutOverlay(async()=>{const selected=await selectCaptureRegion(document,{kind:'录制',signal:lifetime.signal});if(!selected)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));recording=await request('record-start',{region:selected.region});ui.suspend();});
+    if(recording)ui.notice('正在录制，点击浏览器工具栏的参伴图标停止并保存。');
+   }
+   if(name==='website'||name==='inbox')await request('website');
+   if(name==='connect')await request('connect');
+  }catch(e){if(!closed){ui.resume();ui.open(true);ui.notice(e.message+(pendingShot?' 当前截图未丢失，点击截图可重试保存。':''),true);}}
+  finally{busy=false;sync();}
+ }
+ ui=mountFloatingCollector(document,{onAction:action,onPosition:position=>request('position',{position}).catch(e=>ui.notice(e.message,true))});globalThis.__refellowFloating=ui;
+ chrome.runtime.onMessage.addListener(message=>{if(message?.type==='refellow/show')ui.show();if(message?.type==='refellow/record-error'){ui.resume();sync();ui.open(true);ui.notice(message.error+' 录像暂留内存，点击工具栏重试保存。',true);}if(message?.type==='refellow/record-complete'){recording=null;ui.resume();sync();ui.open(true);ui.notice(message.cancelled?'录制已取消。':'录像已保存到网站“我的收藏”。');}});
+ request('preferences').then(({position})=>{if(position&&!closed)ui.setPosition(position);}).catch(e=>ui.notice(e.message,true));
+ window.addEventListener('pagehide',()=>{closed=true;lifetime.abort();if(recording)request('record-stop').catch(()=>{});ui.dispose();delete globalThis.__refellowFloating;},{once:true});
 })();
 
 })();

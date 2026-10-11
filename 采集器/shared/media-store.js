@@ -3,6 +3,8 @@ const DB = 'inspiration-media/v1'; // 主站与扩展分别按origin隔离。
 // 工作台最多500份参考，每份40附件；导入与导出使用同一数量合同。
 export const MEDIA_PACKAGE_COUNT_LIMIT = 500 * 40;
 let opening;
+let mediaBackend=null;
+export function setMediaBackend(backend){mediaBackend=backend;}
 function database() {
   if (!globalThis.indexedDB) return Promise.reject(Error('浏览器不允许媒体存储，请检查权限后重试。'));
   if (!opening) opening = new Promise((resolve,reject)=>{
@@ -22,7 +24,7 @@ async function transaction(mode, fn) {
   });
 }
 export async function validateBlob(blob) {
-  if (!(blob instanceof Blob) || blob.size<1 || blob.size>MEDIA_LIMIT) throw Error('媒体不能为空，且每份不超过12MB。');
+  if (!(blob instanceof Blob) || blob.size<1 || blob.size>MEDIA_LIMIT) throw Error('媒体不能为空，且每份不超过64MB。');
   const b=new Uint8Array(await blob.slice(0,12).arrayBuffer());
   const mime=blob.type.split(';')[0];
   const match = mime==='image/png' ? b[0]===137&&b[1]===80&&b[2]===78&&b[3]===71 :
@@ -35,12 +37,14 @@ export async function validateBlob(blob) {
 }
 export async function putMedia(blob,id='media-'+crypto.randomUUID()) {
   await validateBlob(blob);if(!validId(id))throw Error('媒体编号无效。');
+  if(mediaBackend)return mediaBackend.put(blob,id);
   const previous=await getMedia(id);
   if(previous){if(previous.size!==blob.size||previous.type!==blob.type||await digest(previous)!==await digest(blob))throw Error('同编号媒体不同，拒绝覆盖。');return id;}
   await transaction('readwrite',s=>s.add({id,blob}));return id;
 }
-export async function getMedia(id) {return (await transaction('readonly',s=>s.get(id)))?.blob;}
-export const deleteMedia=id=>transaction('readwrite',s=>s.delete(id));
+export async function getMedia(id) {return mediaBackend?mediaBackend.get(id):(await transaction('readonly',s=>s.get(id)))?.blob;}
+export async function getLegacyMedia(id){return (await transaction('readonly',s=>s.get(id)))?.blob;}
+export const deleteMedia=id=>mediaBackend?mediaBackend.remove(id):transaction('readwrite',s=>s.delete(id));
 export async function digest(blob){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');}
 export async function blobBase64(blob) {const bytes=new Uint8Array(await blob.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.slice(i,i+8192));return btoa(binary);}
 export function fromBase64(raw) {
@@ -75,7 +79,7 @@ export async function inspectMediaPackage(references,raw,read=getMedia) {
   return result;
 }
 export async function stageMedia(items) {
-  const created=[];try{for(const {id,blob} of items){if(!await getMedia(id)){await putMedia(blob,id);created.push(id);}}}
-  catch(err){await Promise.all(created.map(deleteMedia));throw err;}
-  return async()=>{await Promise.all(created.map(deleteMedia));};
+  const backend=mediaBackend,identity=backend?.identity?.();const assertIdentity=()=>{if(backend!==mediaBackend||identity!==backend?.identity?.())throw Error('账户已改变，请重新导入。');};const created=[];try{for(const {id,blob} of items){assertIdentity();const existing=await getMedia(id);assertIdentity();if(!existing){await putMedia(blob,id);assertIdentity();created.push(id);}}}
+  catch(err){if(backend===mediaBackend&&identity===backend?.identity?.())await Promise.all(created.map(deleteMedia));throw err;}
+  return async()=>{assertIdentity();await Promise.all(created.map(deleteMedia));};
 }
