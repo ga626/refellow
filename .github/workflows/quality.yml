@@ -11,6 +11,8 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      REFELLOW_PR_NUMBER: ${{ github.event.pull_request.number }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -34,6 +36,15 @@ jobs:
             done
             npm test
             npm run build:pages
+            if test -n "$REFELLOW_PR_NUMBER"; then node scripts/prepare-candidate.mjs; fi
           else
             echo 'Bootstrap governance only; product source is not present yet.'
           fi
+      - name: Freeze candidate artifact
+        if: github.event_name == 'pull_request' && hashFiles('package.json') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: refellow-candidate-${{ github.event.pull_request.head.sha }}
+          path: local/candidate/
+          if-no-files-found: error
+          retention-days: 30

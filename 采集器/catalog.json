@@ -1,0 +1,217 @@
+{
+  "schema": "inspiration-collector-context/v1",
+  "categories": [
+    {
+      "id": "whole",
+      "name": "整页风格"
+    },
+    {
+      "id": "flows",
+      "name": "产品与流程"
+    },
+    {
+      "id": "motion",
+      "name": "动效与交互"
+    },
+    {
+      "id": "immersive",
+      "name": "3D 与沉浸"
+    },
+    {
+      "id": "graphics",
+      "name": "图形与特殊风格"
+    },
+    {
+      "id": "type-color",
+      "name": "排版与配色"
+    },
+    {
+      "id": "buildable",
+      "name": "模板与组件"
+    }
+  ],
+  "sites": [
+    {
+      "id": "source-siteinspire",
+      "name": "Siteinspire",
+      "url": "https://www.siteinspire.com/",
+      "description": "精选网站按风格、类型、题材与平台组织。适合看排版、空间、图片和区块节奏怎样组成一套语言。",
+      "categories": [
+        "whole"
+      ]
+    },
+    {
+      "id": "source-one-page-love",
+      "name": "One Page Love",
+      "url": "https://onepagelove.com/",
+      "description": "把单页网站、区块与模板放在一起看。适合寻找首页开场、内容顺序、行动按钮和落地页节奏。",
+      "categories": [
+        "whole",
+        "buildable"
+      ]
+    },
+    {
+      "id": "source-awwwards",
+      "name": "Awwwards",
+      "url": "https://www.awwwards.com/",
+      "description": "网站奖项、提名与主题集合。适合观察叙事、沉浸体验和整体美术表达，不把奖项当所有产品的唯一标准。",
+      "categories": [
+        "whole",
+        "motion",
+        "immersive"
+      ]
+    },
+    {
+      "id": "source-godly",
+      "name": "Recent · 原 Godly",
+      "url": "https://recent.design/",
+      "description": "Godly 入口本次重定向到 Recent。当前可浏览网站、界面、品牌、图形与排版等设计内容。",
+      "categories": [
+        "whole",
+        "graphics",
+        "type-color"
+      ]
+    },
+    {
+      "id": "source-land-book",
+      "name": "Landbook",
+      "url": "https://land-book.com/",
+      "description": "以网站截图浏览品牌、电商、着陆页等设计。适合比较首页布局、视觉比例与图片使用。",
+      "categories": [
+        "whole"
+      ]
+    },
+    {
+      "id": "source-lapa",
+      "name": "Lapa Ninja",
+      "url": "https://www.lapa.ninja/",
+      "description": "落地页与行业分类，也包含区块、字体、动效和模板入口。适合从具体页面类型缩小范围。",
+      "categories": [
+        "whole",
+        "type-color",
+        "buildable"
+      ]
+    },
+    {
+      "id": "source-httpster",
+      "name": "Httpster",
+      "url": "https://httpster.net/",
+      "description": "把网格、排版、色彩、插画、滚动等风格与行业题材分开。适合寻找不一样的页面组织。",
+      "categories": [
+        "whole",
+        "type-color"
+      ]
+    },
+    {
+      "id": "source-mobbin",
+      "name": "Mobbin",
+      "url": "https://mobbin.com/",
+      "description": "已上线移动和网页产品的屏幕、流程与交互参考。适合研究注册、搜索、支付、设置与状态反馈。",
+      "categories": [
+        "flows",
+        "motion"
+      ]
+    },
+    {
+      "id": "source-refero",
+      "name": "Refero",
+      "url": "https://refero.design/",
+      "description": "网页和应用参考按页面、流程、UX模式与UI元素组织。适合SaaS和产品信息结构研究。",
+      "categories": [
+        "flows",
+        "whole"
+      ]
+    },
+    {
+      "id": "source-saasframe",
+      "name": "SaaSFrame",
+      "url": "https://www.saasframe.io/",
+      "description": "收集SaaS网站、产品界面和邮件参考，提供页面、模式、流程与响应式方向。",
+      "categories": [
+        "flows",
+        "whole"
+      ]
+    },
+    {
+      "id": "source-60fps",
+      "name": "60fps",
+      "url": "https://60fps.design/",
+      "description": "真实应用中的转场、反馈和微交互集合。适合观察时机、节奏、中断与状态变化。",
+      "categories": [
+        "motion",
+        "flows"
+      ]
+    },
+    {
+      "id": "source-react-bits",
+      "name": "React Bits",
+      "url": "https://www.reactbits.dev/",
+      "description": "React动画组件、文字效果、背景与交互的可预览目录。适合选中一个效果，再决定如何用于项目。",
+      "categories": [
+        "motion",
+        "buildable"
+      ]
+    },
+    {
+      "id": "source-threeui",
+      "name": "ThreeUI",
+      "url": "https://threeui.com/",
+      "description": "Three.js组件、完整模板、WebGL背景和着色器目录。适合研究场景与UI怎样融合。",
+      "categories": [
+        "immersive",
+        "motion",
+        "buildable"
+      ]
+    },
+    {
+      "id": "source-21st",
+      "name": "21st",
+      "url": "https://21st.dev/",
+      "description": "设计工程师发布的React组件与主题目录。适合按效果搜组件，再核验项目兼容与许可。",
+      "categories": [
+        "buildable",
+        "motion"
+      ]
+    },
+    {
+      "id": "source-shadcn",
+      "name": "shadcn/ui",
+      "url": "https://ui.shadcn.com/",
+      "description": "可组合、可修改的UI组件与示例。它更像实现底座，不是完整艺术风格画廊。",
+      "categories": [
+        "buildable",
+        "flows"
+      ]
+    },
+    {
+      "id": "source-inspoai",
+      "name": "InspoAI",
+      "url": "https://www.inspoai.io/",
+      "description": "设计发现和辅助创作产品。这里仅把它作为外部来源入口，不连接生成账号或云端项目。",
+      "categories": [
+        "whole",
+        "buildable"
+      ]
+    },
+    {
+      "id": "source-fonts-in-use",
+      "name": "Fonts In Use",
+      "url": "https://fontsinuse.com/",
+      "description": "按字体、格式、行业和时期索引的排版案例档案。比只看字体样张更适合判断搭配与语境。",
+      "categories": [
+        "type-color",
+        "graphics"
+      ]
+    },
+    {
+      "id": "source-typewolf",
+      "name": "Typewolf",
+      "url": "https://www.typewolf.com/",
+      "description": "通过网站与排版观察字体使用、分类和搭配。适合给标题、正文与品牌语气找参考。",
+      "categories": [
+        "type-color"
+      ]
+    }
+  ],
+  "projects": []
+}

@@ -1,0 +1,20 @@
+import {cleanURL} from './core.js';
+import {handleFloatingMessage} from './floating-background.js';
+// 用户点击工具栏才注入，不常驻全站、不自动打开侧栏。
+chrome.action.onClicked.addListener(async tab=>{
+  try{
+    cleanURL(tab.url||'');
+    await chrome.scripting.executeScript({target:{tabId:tab.id},files:['floating.js']});
+    await chrome.action.setBadgeText({tabId:tab.id,text:''});
+    await chrome.action.setTitle({tabId:tab.id,title:'参伴：显示悬浮采集器'});
+  }catch(error){
+    await chrome.action.setBadgeText({tabId:tab.id,text:'!'});
+    await chrome.action.setBadgeBackgroundColor({tabId:tab.id,color:'#ad1e37'});
+    await chrome.action.setTitle({tabId:tab.id,title:'此页面不能显示采集器，请在普通网页使用。'+error.message});
+  }
+});
+chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+  if(message?.type!=='refellow/floating')return false;
+  handleFloatingMessage(message,sender).then(result=>respond({ok:true,...result}),error=>respond({ok:false,error:error.message}));
+  return true;
+});

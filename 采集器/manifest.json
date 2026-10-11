@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Refellow · 参伴 · 页面采集器",
+  "version": "0.4.0",
+  "minimum_chrome_version": "116",
+  "description": "可拖动的悬浮采集入口；点开截图或静音录制，不用时贴边隐藏，内容仅存本地。",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_icon": {"16":"icons/icon-16.png","32":"icons/icon-32.png","48":"icons/icon-48.png","128":"icons/icon-128.png"},
+    "default_title": "参伴：显示悬浮采集器（授权当前页）"
+  },
+  "icons": {"16":"icons/icon-16.png","32":"icons/icon-32.png","48":"icons/icon-48.png","128":"icons/icon-128.png"},
+  "background": {"service_worker": "service-worker.js", "type": "module"},
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

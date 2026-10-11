@@ -1,0 +1,14 @@
+import {readFile,mkdir,copyFile,cp,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {sourceIdentity} from './source-identity.mjs';
+import {buildPages} from './build-pages.mjs';
+const root=process.cwd(),identity=sourceIdentity(root,['package.json','scripts/prepare-candidate.mjs']);
+if(!identity||!Number.isInteger(identity.pullRequest)||identity.pullRequest<1)throw Error('候选须绑定干净源码和真实 PR');
+const pages=await buildPages(),zip=await readFile('public/assets/collector.zip');
+await mkdir('local/candidate',{recursive:true});
+await copyFile('public/assets/collector.zip','local/candidate/refellow-collector-0.4.0.zip');
+await cp(pages.directory,'local/candidate/pages',{recursive:true});
+await copyFile(pages.manifestPath,'local/candidate/pages-manifest.json');
+const receipt={schema:'refellow-candidate/v1',...identity,version:'0.4.0',collectorSha256:createHash('sha256').update(zip).digest('hex'),collectorBytes:zip.length,pagesPackageHash:pages.packageHash,realEdgeAcceptance:'pending'};
+await writeFile('local/candidate/receipt.json',JSON.stringify(receipt,null,2)+'\n');
+console.log(JSON.stringify(receipt,null,2));
