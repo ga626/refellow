@@ -5,7 +5,9 @@ const [base, manifestPath, output] = process.argv.slice(2);
 if (!base || !manifestPath || !output) throw new Error('Usage: node scripts/verify-pages.mjs base manifest output');
 const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
 const checks = [];
-for (const entry of manifest.files.filter(file => file.path !== '_headers')) {
+// 平台部署配置在下载后逐文件核验；公网检查只请求实际公开资产。
+const platformFiles = new Set(['_headers', '_worker.js', '_routes.json']);
+for (const entry of manifest.files.filter(file => !platformFiles.has(file.path))) {
   const response = await fetch(new URL(entry.path === 'index.html' ? '/' : entry.path, base), { signal: AbortSignal.timeout(30000) });
   const bytes = Buffer.from(await response.arrayBuffer());
   const sha256 = createHash('sha256').update(bytes).digest('hex');
