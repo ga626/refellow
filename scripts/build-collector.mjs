@@ -18,7 +18,8 @@ files.push({name:'LICENSE',data:new Uint8Array(await readFile(path.join(root,'LI
 const identity=sourceIdentity(root,['LICENSE','scripts/build-collector.mjs','scripts/source-identity.mjs',...names.map(n=>'采集器/'+n),...['floating-ui.js','screen-recorder.js'].map(n=>'public/collector/'+n)]);
 const candidate=identity&&Number.isInteger(identity.pullRequest)&&identity.pullRequest>0;
 if(process.env.REFELLOW_REQUIRE_CANDIDATE==='1'&&!candidate)throw Error('正式候选要求已跟踪且干净的 Git 源码身份');
-const releaseIdentity={schema:'refellow-collector-release/v1',version:'0.5.0',kind:candidate?'git-source-candidate':'local-development-source-not-store-release',...identity};
+const version=JSON.parse(await readFile(path.join(root,'采集器/manifest.json'),'utf8')).version;
+const releaseIdentity={schema:'refellow-collector-release/v1',version,kind:candidate?'git-source-candidate':'local-development-source-not-store-release',...identity};
 files.push({name:'release-identity.json',data:new TextEncoder().encode(JSON.stringify(releaseIdentity,null,2)+'\n')});
 const blob=await makeZip(files),bytes=Buffer.from(await blob.arrayBuffer());
 const out=path.join(root,'public/assets/collector.zip');await writeFile(out,bytes);

@@ -1,4 +1,4 @@
-import {readFile,writeFile,mkdir,readdir} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,readdir,rm,lstat} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -62,10 +62,20 @@ export async function preparePagesFiles(root=projectRoot) {
   return {files,source,identity,packageHash,replacements:Object.fromEntries(replacements),siteCount:catalog.sites.length};
 }
 
-export async function buildPages() {
-  const prepared=await preparePagesFiles(), buildRoot=path.join(projectRoot,'部署'), id=prepared.packageHash;
+export async function buildPages({archive=false}={}) {
+  const prepared=await preparePagesFiles(), buildRoot=path.join(projectRoot,archive?'部署':'local/build'), id=prepared.packageHash;
   await mkdir(buildRoot,{recursive:true});
-  const directory=path.join(buildRoot,'包-'+id.slice(0,16));
+  const directory=path.join(buildRoot,archive?'包-'+id.slice(0,16):'pages');
+  const manifestPath=directory+'.manifest.json';
+  if(!archive){
+    let prior;try{prior=await lstat(directory);}catch(e){if(e.code!=='ENOENT')throw e;}
+    if(prior){
+      if(prior.isSymbolicLink()||!prior.isDirectory())throw Error('构建目录身份无效');
+      const previous=JSON.parse(await readFile(manifestPath,'utf8'));
+      if(previous.schema!=='inspiration-pages-package/v1')throw Error('拒绝覆盖非本项目构建目录');
+      if(previous.packageHash!==id){await rm(directory,{recursive:true});await rm(manifestPath);}
+    }
+  }
   let existing=false;try{await mkdir(directory);}catch(err){if(err.code!=='EEXIST')throw err;existing=true;}
   for(const [name,bytes] of prepared.files) {
     const target=path.join(directory,name);
@@ -75,7 +85,6 @@ export async function buildPages() {
   async function entries(dir,prefix=''){const result=[];for(const entry of await readdir(dir,{withFileTypes:true})){const name=prefix+entry.name;if(entry.isSymbolicLink())throw Error('拒绝符号链接');if(entry.isDirectory())result.push(...await entries(path.join(dir,entry.name),name+'/'));else result.push(name);}return result;}
   const actual=await entries(directory);if(actual.length!==prepared.files.size||actual.some(name=>!prepared.files.has(name)))throw Error('发布目录含非白名单文件');
   const manifest={schema:'inspiration-pages-package/v1',createdAt:new Date().toISOString(),packageHash:id,appVersion:2,sourceIdentity:prepared.identity||'local-development-source-not-release',siteCount:prepared.siteCount,sourceFiles:prepared.source,files:[...prepared.files.entries()].map(([name,bytes])=>({path:name,sha256:hash(bytes),bytes:bytes.length})),imageRenames:prepared.replacements,exclusions:['个人收藏/项目/评分','认证、账号与本机配置','源码工具、测试、日志和调研证据'],limitations:['第三方截图公开展示许可未独立核验','云端需要DB绑定与服务端秘密；未配置时明确失败','真实Edge采集与云空间需同候选验收']};
-  const manifestPath=path.join(buildRoot,'包-'+id.slice(0,16)+'.manifest.json');
   if(!existing)await writeFile(manifestPath,JSON.stringify(manifest,null,2)+'\n',{flag:'wx'});
   return {directory,manifestPath,packageHash:id,fileCount:prepared.files.size,siteCount:prepared.siteCount,reused:existing};
 }

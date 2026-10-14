@@ -3,7 +3,7 @@ import {handleFloatingMessage} from './floating-background.js';
 import {stopTabRecording,finishTabRecording,failedTabRecording} from './native-recording.js';
 import {clearExpiredShots} from './pending-shots.js';
 clearExpiredShots().catch(()=>{});
-// 用户点击工具栏才注入，不常驻全站、不自动打开侧栏。
+// 黄页18站由manifest自动注入，其余网页由工具栏手势注入；无侧栏。
 chrome.action.onClicked.addListener(async tab=>{
   try{
     if(await stopTabRecording(chrome,tab.id))return;

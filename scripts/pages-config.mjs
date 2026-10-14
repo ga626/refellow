@@ -8,5 +8,5 @@ export const headers = Object.freeze({
   "Cache-Control": "public, max-age=0, must-revalidate"
 });
 export const collectorHeaders={...headers,"Content-Security-Policy":headers['Content-Security-Policy'].replace("frame-ancestors 'none'","frame-ancestors 'self'"),"X-Frame-Options":"SAMEORIGIN"};
-export const downloadHeaders=Object.freeze({'Content-Disposition':'attachment; filename="refellow-collector-0.5.0.zip"'});
+export const downloadHeaders=Object.freeze({'Content-Disposition':'attachment; filename="refellow-collector-0.5.1.zip"'});
 export const pagesHeaders = () => "/*\n" + Object.entries(headers).map(([key,value]) => "  " + key + ": " + value).join("\n") + "\n/collector/*\n  ! Content-Security-Policy\n  ! X-Frame-Options\n  Content-Security-Policy: "+collectorHeaders['Content-Security-Policy']+"\n  X-Frame-Options: SAMEORIGIN\n/assets/collector.zip\n"+Object.entries(downloadHeaders).map(([key,value])=>'  '+key+': '+value).join('\n')+'\n';

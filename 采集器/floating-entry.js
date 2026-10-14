@@ -16,8 +16,8 @@ import {selectCaptureRegion} from './shared/capture-region.js';
     if(pendingShot){ui.notice('正在保存到网站…');await request('shot-save',pendingShot);pendingShot=null;ui.notice('截图已保存到网站“我的收藏”。');}
    }
    if(name==='record'){
-    await ui.withoutOverlay(async()=>{const selected=await selectCaptureRegion(document,{kind:'录制',signal:lifetime.signal});if(!selected)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));recording=await request('record-start',{region:selected.region});ui.suspend();});
-    if(recording)ui.notice('正在录制，点击浏览器工具栏的参伴图标停止并保存。');
+    await ui.withoutOverlay(async()=>{const selected=await selectCaptureRegion(document,{kind:'录制',signal:lifetime.signal});if(!selected)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));recording=await request('record-start',{region:selected.region});});
+    if(recording)ui.notice('正在录制，再点一次“停止录制”即可保存。');
    }
    if(name==='website'||name==='inbox')await request('website');
    if(name==='connect')await request('connect');

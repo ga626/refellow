@@ -4,6 +4,7 @@ const text=new TextEncoder(),MAX_MEDIA=64*1024*1024,CHUNK=512*1024;
 const hex=bytes=>[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
 const random=n=>hex(crypto.getRandomValues(new Uint8Array(n)));
 const MAX_WORKSPACE=1024*1024;
+const mediaKey=(id,position)=>'media/'+id+'/'+position;
 const hash=async value=>hex(await crypto.subtle.digest('SHA-256',typeof value==='string'?text.encode(value):value));
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const cookie=token=>'refellow_session='+token+'; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=2592000';
@@ -76,7 +77,7 @@ export async function handleCloudRequest(request,env){
   if(path==='/logout'&&request.method==='POST'){await q('DELETE FROM sessions WHERE token_hash=?',await hash(session.raw)).run();return json({ok:true},200,{'Set-Cookie':'refellow_session=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});}
   if(path==='/account'&&request.method==='GET')return json({username:session.username,development:env.LOCAL_DEVELOPMENT===true});
   if(path==='/devices/revoke'&&request.method==='POST'){if(session.scope!=='website')fail('请在网站管理设备。',403);await q("DELETE FROM sessions WHERE user_id=? AND scope='capture'",user).run();await q('DELETE FROM pair_codes WHERE user_id=?',user).run();return json({ok:true});}
-  if(path==='/account'&&request.method==='DELETE'){if(session.scope!=='website')fail('请在网站删除账户。',403);const body=await readJSON();if(typeof body.password!=='string'||body.password.length>128)fail('密码错误。',401);const account=await q('SELECT salt,password_hash FROM users WHERE id=?',user).first();if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('密码错误。',401);await q('DELETE FROM users WHERE id=?',user).run();return json({ok:true},200,{'Set-Cookie':'refellow_session=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});}
+  if(path==='/account'&&request.method==='DELETE'){if(session.scope!=='website')fail('请在网站删除账户。',403);const body=await readJSON();if(typeof body.password!=='string'||body.password.length>128)fail('密码错误。',401);const account=await q('SELECT salt,password_hash FROM users WHERE id=?',user).first();if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('密码错误。',401);if(env.MEDIA){const objects=(await q('SELECT c.storage_key FROM chunk_meta c JOIN uploads u ON u.id=c.upload_id WHERE u.user_id=?',user).all()).results;for(const object of objects)await env.MEDIA.delete(object.storage_key);}await q('DELETE FROM users WHERE id=?',user).run();return json({ok:true},200,{'Set-Cookie':'refellow_session=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});}
   if(path==='/pair'&&request.method==='POST'){
    if(session.scope!=='website')fail('请在网站连接采集器。',403);await rate('pair-user:'+user,8);const code=random(8);await db.batch([q('DELETE FROM pair_codes WHERE user_id=?',user),q('INSERT INTO pair_codes VALUES(?,?,?)',await hash(code),user,now+5*60*1000)]);return json({code:code.match(/.{4}/g).join('-')});
   }
@@ -114,10 +115,13 @@ export async function handleCloudRequest(request,env){
     const position=Number(part[2]),bytes=await readBytes(CHUNK);if(position>=Math.ceil(row.size/CHUNK)||bytes.byteLength!==Math.min(CHUNK,row.size-position*CHUNK))fail('媒体分块大小不一致。');
     if(await hash(bytes)!==JSON.parse(row.chunk_hashes)[position])fail('媒体分块摘要不一致，请重试。',409);
     if(position===0){const s=bytes,ascii=(a,b)=>new TextDecoder().decode(s.slice(a,b));const signatures={'image/png':s[0]===137&&ascii(1,4)==='PNG','image/jpeg':s[0]===255&&s[1]===216,'image/webp':ascii(0,4)==='RIFF'&&ascii(8,12)==='WEBP','video/webm':s[0]===26&&s[1]===69&&s[2]===223&&s[3]===163,'video/mp4':ascii(4,8)==='ftyp'};if(!signatures[row.mime.split(';')[0]])fail('文件内容与声明格式不符。');}
-    await q('INSERT INTO chunks VALUES(?,?,?) ON CONFLICT(upload_id,position) DO UPDATE SET bytes=excluded.bytes',row.id,position,bytes.buffer).run();return json({ok:true});
+    const key=mediaKey(row.id,position);
+    if(env.MEDIA){await env.MEDIA.put(key,bytes,{httpMetadata:{contentType:row.mime},customMetadata:{uploadId:row.id,position:String(position)}});await q('INSERT INTO chunk_meta(upload_id,position,storage_key,chunk_size) VALUES(?,?,?,?) ON CONFLICT(upload_id,position) DO UPDATE SET storage_key=excluded.storage_key,chunk_size=excluded.chunk_size',row.id,position,key,bytes.byteLength).run();}
+    else await q('INSERT INTO chunks VALUES(?,?,?) ON CONFLICT(upload_id,position) DO UPDATE SET bytes=excluded.bytes',row.id,position,bytes.buffer).run();
+    return json({ok:true});
    }
    if(part[2]==='complete'&&request.method==='POST'){
-    const pieces=await q('SELECT COUNT(*) AS count,COALESCE(SUM(length(bytes)),0) AS size FROM chunks WHERE upload_id=?',row.id).first();
+    const pieces=env.MEDIA?await q('SELECT COUNT(*) AS count,COALESCE(SUM(chunk_size),0) AS size FROM chunk_meta WHERE upload_id=?',row.id).first():await q('SELECT COUNT(*) AS count,COALESCE(SUM(length(bytes)),0) AS size FROM chunks WHERE upload_id=?',row.id).first();
     if(pieces.count!==Math.ceil(row.size/CHUNK)||pieces.size!==row.size)fail('媒体没有完整上传，请重试。',409);
     const page=JSON.parse(row.page);if(page.storageOnly){await q('UPDATE uploads SET completed=1 WHERE id=? AND user_id=?',row.id,user).run();return json({ok:true,id:row.id});}
     const reference=normalizeReference({url:page.url,title:page.title,captureMethod:page.captureMethod,attachments:[{id:'att-'+crypto.randomUUID(),mediaId:row.id,kind:row.mime.startsWith('video/')?'video':'image',mime:row.mime,size:row.size,duration:page.duration,name:row.mime.startsWith('video/')?'网页录制':'框选截图'}]});
@@ -134,8 +138,8 @@ export async function handleCloudRequest(request,env){
   const media=path.match(/^\/media\/([a-zA-Z0-9_-]+)(?:\/(\d+))?$/);
   if(media&&session.scope==='website'){
    const row=await ownedUpload(user,media[1]);if(!row.completed)fail('媒体尚未保存完整。',404);
-   if(request.method==='GET'){if(media[2]===undefined)return json({mime:row.mime,size:row.size,sha256:row.sha256,chunkHashes:JSON.parse(row.chunk_hashes)});const piece=await q('SELECT bytes FROM chunks WHERE upload_id=? AND position=?',row.id,Number(media[2])).first();if(!piece)fail('没有这个媒体分块。',404);return new Response(new Uint8Array(piece.bytes),{headers:{...headers,'Content-Type':'application/octet-stream','Cache-Control':'private, no-store'}});}
-   if(request.method==='DELETE'&&media[2]===undefined){const workspace=await q('SELECT body FROM workspaces WHERE user_id=?',user).first();if(JSON.parse(workspace.body).references.some(r=>r.attachments.some(a=>a.mediaId===row.id)))fail('媒体仍被参考使用，请先移除对应附件。',409);await q('DELETE FROM uploads WHERE id=? AND user_id=?',row.id,user).run();return json({ok:true});}
+   if(request.method==='GET'){if(media[2]===undefined)return json({mime:row.mime,size:row.size,sha256:row.sha256,chunkHashes:JSON.parse(row.chunk_hashes)});const meta=env.MEDIA?await q('SELECT storage_key FROM chunk_meta WHERE upload_id=? AND position=?',row.id,Number(media[2])).first():null;if(meta?.storage_key&&env.MEDIA){const object=await env.MEDIA.get(meta.storage_key);if(!object)fail('媒体分块不存在。',404);return new Response(object.body,{headers:{...headers,'Content-Type':'application/octet-stream','Cache-Control':'private, no-store'}});}const piece=await q('SELECT bytes FROM chunks WHERE upload_id=? AND position=?',row.id,Number(media[2])).first();if(!piece)fail('没有这个媒体分块。',404);return new Response(new Uint8Array(piece.bytes),{headers:{...headers,'Content-Type':'application/octet-stream','Cache-Control':'private, no-store'}});}
+   if(request.method==='DELETE'&&media[2]===undefined){const workspace=await q('SELECT body FROM workspaces WHERE user_id=?',user).first();if(JSON.parse(workspace.body).references.some(r=>r.attachments.some(a=>a.mediaId===row.id)))fail('媒体仍被参考使用，请先移除对应附件。',409);if(env.MEDIA){const pieces=(await q('SELECT storage_key FROM chunk_meta WHERE upload_id=?',row.id).all()).results;for(const piece of pieces)await env.MEDIA.delete(piece.storage_key);}await q('DELETE FROM uploads WHERE id=? AND user_id=?',row.id,user).run();return json({ok:true});}
   }
   return json({error:'没有此接口。'},404);
  }catch(error){return json({error:error.status?error.message:'网站保存暂时失败，请稍后重试。'},error.status||500);}
