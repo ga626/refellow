@@ -1,6 +1,6 @@
 import {cleanURL} from './core.js';
 import {handleFloatingMessage} from './floating-background.js';
-import {stopTabRecording,finishTabRecording,failedTabRecording} from './native-recording.js';
+import {stopTabRecording,finishTabRecording,failedTabRecording,processingTabRecording} from './native-recording.js';
 import {clearExpiredShots} from './pending-shots.js';
 clearExpiredShots().catch(()=>{});
 // 黄页18站由manifest自动注入，其余网页由工具栏手势注入；无侧栏。
@@ -18,6 +18,7 @@ chrome.action.onClicked.addListener(async tab=>{
   }
 });
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+  if(message?.type==='refellow/record-processing'){processingTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type==='refellow/record-finished'){finishTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type==='refellow/record-failed'){failedTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type!=='refellow/floating')return false;
@@ -25,3 +26,4 @@ chrome.runtime.onMessage.addListener((message,sender,respond)=>{
   return true;
 });
 chrome.tabs.onRemoved.addListener(tabId=>stopTabRecording(chrome,tabId).catch(()=>{}));
+chrome.tabs.onUpdated.addListener((tabId,change)=>{if(change.url)stopTabRecording(chrome,tabId).catch(()=>{});});

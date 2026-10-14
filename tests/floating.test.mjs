@@ -3,6 +3,14 @@ import {dockPosition} from '../public/collector/floating-ui.js';
 import {trustedPage,handleFloatingMessage} from '../采集器/floating-background.js';
 const api={runtime:{id:'qa-extension',getURL:p=>'chrome-extension://qa-extension/'+p},tabs:{get:async()=>({id:7,url:'https://qa.example/page',windowId:2,title:'QA'})},storage:{local:{get:async()=>({}),set:async()=>{}}}};
 const sender={id:'qa-extension',frameId:0,tab:{id:7},url:'https://qa.example/page'};
+test('自动内容脚本无 tabs URL 权限仍可读取偏好，异步采集校验原始文档',async()=>{
+ const limited={...api,tabs:{get:async()=>({id:7,windowId:2}),sendMessage:async(id,message,options)=>{assert.equal(options.documentId,'original');return {url:sender.url};}}};
+ assert.equal((await trustedPage(limited,sender)).url,sender.url);
+ assert.deepEqual(await handleFloatingMessage({action:'preferences'},sender,limited),{position:null});
+ assert.equal((await trustedPage(limited,{...sender,documentId:'original'},sender.url)).url,sender.url);
+ limited.tabs.sendMessage=async()=>({url:'https://qa.example/changed'});
+ await assert.rejects(trustedPage(limited,{...sender,documentId:'original'},sender.url),/改变/);
+});
 test('贴边位置跨视口保存比例，恶意／过期位置仍保持可见',()=>{
   for(const width of [320,800,1920])for(const height of [200,600,1080])for(const ratio of [-10,0,.64,1,20,NaN])for(const side of ['left','right']){
     const p=dockPosition({side,ratio},{width,height});assert.ok(p.x>=0&&p.x+44<=width);assert.ok(p.y>=0&&p.y+44<=height);

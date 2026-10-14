@@ -10,9 +10,15 @@ import {readPendingShot,removePendingShot,savePendingShot} from './pending-shots
 const POSITION='refellow-collector/floating-position-v1';
 export async function trustedPage(api,sender,expectedURL){
   if(sender.id!==api.runtime.id||!sender.tab?.id||sender.frameId!==0)throw Error('拒绝非当前扩展顶层网页请求。');
-  const tab=await api.tabs.get(sender.tab.id),url=cleanURL(tab.url||'');
+  const tab=await api.tabs.get(sender.tab.id),url=cleanURL(tab.url||sender.url||'');
+  let title=tab.title||sender.tab.title||'';
   if(cleanURL(sender.url||'')!==url||expectedURL&&cleanURL(expectedURL)!==url)throw Error('页面网址已改变，请重新打开采集器。');
-  return {url,title:String(tab.title||'').slice(0,120),tabId:tab.id,windowId:tab.windowId};
+  if(expectedURL&&sender.documentId&&api.tabs.sendMessage){
+    const current=await api.tabs.sendMessage(tab.id,{type:'refellow/context'},{documentId:sender.documentId,frameId:0}).catch(()=>{throw Error('页面已刷新或关闭，请在当前网页重新打开采集器。');});
+    if(current?.url!==url)throw Error('页面网址已改变，请重新打开采集器。');
+    title=current.title||title;
+  }
+  return {url,title:String(title).slice(0,120),tabId:tab.id,windowId:tab.windowId};
 }
 export async function handleFloatingMessage(message,sender,api=chrome,save=saveCapture){
   const page=await trustedPage(api,sender,message.pageURL);
@@ -23,7 +29,7 @@ export async function handleFloatingMessage(message,sender,api=chrome,save=saveC
   if(message.action==='shot-start'){
     const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];if(!connection?.token)throw Error('请先在网站登录并连接采集器。');
     const [active]=await api.tabs.query({active:true,currentWindow:true});if(active?.id!==page.tabId)throw Error('请回到要截图的网页。');
-    const data=await api.tabs.captureVisibleTab(page.windowId,{format:'png'});await trustedPage(api,sender,page.url);
+    let data;try{data=await api.tabs.captureVisibleTab(page.windowId,{format:'png'});}catch(e){throw Error('当前网页尚未授权截图。请在 Edge 右上角扩展菜单点一次参伴，再回小球截图。'+(e.message?'（'+e.message+'）':''));}await trustedPage(api,sender,page.url);
     const [after]=await api.tabs.query({active:true,currentWindow:true});if(after?.id!==page.tabId)throw Error('截图时切换了网页，请重试。');
     const ticket=crypto.randomUUID();await savePendingShot({ticket,data,page,connection,expires:Date.now()+5*60*1000});return {data,ticket};
   }

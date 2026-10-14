@@ -1,5 +1,8 @@
 import {mountFloatingCollector} from './shared/floating-ui.js';
 import {selectCaptureRegion} from './shared/capture-region.js';
+if(window.top!==window){
+ document.querySelector('main').innerHTML='<h1>请独立打开交互演示</h1><p>嵌入小窗不能代表整个网页的采集范围。</p><a href="/collector/floating-preview.html" target="_blank" rel="noopener">打开全页交互演示 ↗</a>';
+}else{
 let busy=false;const lifetime=new AbortController();
 async function action(name){
  if(name==='hide'){ui.hide();return;}
@@ -15,3 +18,4 @@ let position;try{position=JSON.parse(localStorage.getItem('refellow-preview/floa
 const ui=mountFloatingCollector(document,{inspectable:true,position:position||{},onAction:action,onPosition:p=>localStorage.setItem('refellow-preview/floating-position',JSON.stringify(p))});
 document.querySelector('#restore').addEventListener('click',()=>ui.show());
 window.addEventListener('pagehide',()=>{lifetime.abort();ui.dispose();},{once:true});
+}

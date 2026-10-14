@@ -18,6 +18,7 @@ async function begin(message){
   recorder.onerror=e=>{error=e.error?.message||'录制失败。';cancelled=true;job.stop();};
   recorder.onstop=async()=>{
    cleanup();job.uploading=true;
+   await chrome.runtime.sendMessage({type:'refellow/record-processing',id:message.id}).catch(()=>{});
    try{if(error)throw Error(error);if(!cancelled){if(!bytes)throw Error('没有录到画面。');const blob=new Blob(chunks,{type:mime});await uploadCapture(message.credentials,{...message.page,captureMethod:'tab-region-recording',duration},blob,'record-'+job.id);}}
    catch(e){error=e.message;job.retryBlob=chunks.length?new Blob(chunks,{type:mime}):null;job.error=error;job.retry=async()=>{if(job.uploading)return;job.uploading=true;try{if(!job.retryBlob)throw Error(job.error);await uploadCapture(message.credentials,{...message.page,captureMethod:'tab-region-recording',duration},job.retryBlob,'record-'+job.id);current=null;await chrome.runtime.sendMessage({type:'refellow/record-finished',id:message.id,page:message.page});}finally{job.uploading=false;}};}
    job.uploading=false;if(error){await chrome.runtime.sendMessage({type:'refellow/record-failed',id:message.id,error});return;}

@@ -67,6 +67,34 @@ async function cropScreenshot(blob,region,{decode=createImageBitmap,Canvas=Offsc
   const image=await decode(blob);
   try{const r=pixelRegion(region,image.width,image.height),canvas=new Canvas(r.width,r.height);canvas.getContext('2d').drawImage(image,r.x,r.y,r.width,r.height,0,0,r.width,r.height);return await canvas.convertToBlob({type:'image/png'});}finally{image.close();}
 }
+function dragCaptureRect(original,handle,dx,dy,viewport){
+  const clamp=(v,max)=>Math.max(0,Math.min(max,v));
+  if(handle==='move')return {...original,x:clamp(original.x+dx,viewport.width-original.width),y:clamp(original.y+dy,viewport.height-original.height)};
+  let left=original.x,right=left+original.width,top=original.y,bottom=top+original.height;
+  if(handle.includes('w'))left=clamp(left+dx,right-8);
+  if(handle.includes('e'))right=Math.max(left+8,Math.min(viewport.width,right+dx));
+  if(handle.includes('n'))top=clamp(top+dy,bottom-8);
+  if(handle.includes('s'))bottom=Math.max(top+8,Math.min(viewport.height,bottom+dy));
+  return {x:left,y:top,width:right-left,height:bottom-top};
+}
+function recordingControlPosition(region,viewport,size={width:200,height:40}){
+  const r={x:region.x*viewport.width,y:region.y*viewport.height,width:region.width*viewport.width,height:region.height*viewport.height};
+  const candidates=[{x:8,y:8},{x:8,y:viewport.height-size.height-8},{x:viewport.width-size.width-8,y:8},{x:viewport.width-size.width-8,y:viewport.height-size.height-8}];
+  return candidates.find(p=>p.x>=0&&p.y>=0&&(p.x+size.width+4<=r.x||p.x-4>=r.x+r.width||p.y+size.height+4<=r.y||p.y-4>=r.y+r.height))||null;
+}
+function mountRecordingControls(doc,{region,onStop,onCancel,inspectable=false}){
+  const win=doc.defaultView,host=doc.createElement('div'),events=new AbortController();
+  host.setAttribute('data-refellow-recording','');host.style.cssText='all:initial!important;position:fixed!important;inset:0!important;pointer-events:none!important;z-index:2147483647!important;';
+  const root=host.attachShadow({mode:inspectable?'open':'closed'});
+  root.innerHTML='<div role="status" class="controls"><output>00:00</output><button data-stop>停止并保存</button><button data-cancel>取消</button></div>';
+  const sheet=new win.CSSStyleSheet();sheet.replaceSync(':host{font:13px Segoe UI,Microsoft YaHei,sans-serif;color:#18243b}.controls{position:absolute;display:flex;align-items:center;gap:8px;box-sizing:border-box;width:200px;height:40px;background:white;border:1px solid #e3e8f0;border-radius:8px;pointer-events:auto;padding:4px 8px}output{font-variant-numeric:tabular-nums}button{font:inherit;border:0;background:transparent;color:#2348f4;cursor:pointer;padding:4px 0}button:last-child{color:#58657b}button:focus-visible{outline:2px solid #2348f4}[hidden]{display:none!important}');root.adoptedStyleSheets=[sheet];
+  const bar=root.querySelector('.controls'),started=Date.now();
+  const place=()=>{const p=recordingControlPosition(region,{width:win.innerWidth,height:win.innerHeight});bar.hidden=!p;if(p){bar.style.left=p.x+'px';bar.style.top=p.y+'px';}};
+  const run=async fn=>{const buttons=[...root.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);try{await fn();}catch(e){bar.title=e.message;root.querySelector('output').textContent='重试';}finally{buttons.forEach(b=>b.disabled=false);}};
+  root.querySelector('[data-stop]').addEventListener('click',()=>run(onStop),{signal:events.signal});root.querySelector('[data-cancel]').addEventListener('click',()=>run(onCancel),{signal:events.signal});win.addEventListener('resize',place,{signal:events.signal});
+  const timer=win.setInterval(()=>{const n=Math.floor((Date.now()-started)/1000);root.querySelector('output').textContent=String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');},1000);
+  doc.documentElement.append(host);place();return {dispose(){events.abort();win.clearInterval(timer);host.remove();}};
+}
 function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=false}={}){
  return new Promise((resolve,reject)=>{
   const win=doc.defaultView,viewport={width:win.innerWidth,height:win.innerHeight},previous=doc.activeElement,events=new AbortController();
@@ -75,25 +103,27 @@ function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=fa
   root.innerHTML=template.slice(template.indexOf('</style>')+8);const sheet=new win.CSSStyleSheet();sheet.replaceSync(template.slice(7,template.indexOf('</style>')));root.adoptedStyleSheets=[sheet];
   const surface=root.querySelector('.surface'),box=root.querySelector('.box'),measure=root.querySelector('.measure'),confirm=root.querySelector('[data-do=confirm]'),bar=root.querySelector('.bar');confirm.textContent=kind==='录制'?'开始录制':'保存截图';
   if(image){const img=doc.createElement('img');img.src=image;img.alt='待截取的当前画面';surface.prepend(img);}
+  const adjustments=new win.CSSStyleSheet();adjustments.replaceSync('.box{pointer-events:auto;cursor:move}.box .handle{pointer-events:auto;touch-action:none;width:12px;height:12px}.nw,.se{cursor:nwse-resize}.ne,.sw{cursor:nesw-resize}.n,.s{cursor:ns-resize}.e,.w{cursor:ew-resize}.bar{z-index:2}.measure{pointer-events:none;top:12px;left:12px}.surface:before,.surface:after{z-index:1}.surface{overflow:hidden}');root.adoptedStyleSheets=[sheet,adjustments];
+  for(const h of root.querySelectorAll('.handle')){h.dataset.handle=[...h.classList].find(c=>c!=='handle');h.setAttribute('aria-label','拖动调整选区');}
   let start,rect,finished=false;
   const finish=(result,error)=>{if(finished)return;finished=true;events.abort();signal?.removeEventListener('abort',cancel);host.remove();previous?.focus?.({preventScroll:true});error?reject(error):resolve(result);};
   const cancel=()=>finish(null);
-  const paint=()=>{surface.style.background='transparent';surface.style.setProperty('--cx',rect.x+'px');surface.style.setProperty('--cy',rect.y+'px');box.hidden=false;Object.assign(box.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});measure.textContent=Math.round(rect.width)+' × '+Math.round(rect.height);confirm.disabled=rect.width<8||rect.height<8;root.querySelector('.bar span').textContent=Math.round(rect.width)+' × '+Math.round(rect.height)+' · 拖动重新选择';};
-  surface.addEventListener('pointerdown',e=>{if(e.button!==0||e.composedPath().includes(bar))return;e.preventDefault();start={x:Math.max(0,Math.min(viewport.width,e.clientX)),y:Math.max(0,Math.min(viewport.height,e.clientY))};surface.setPointerCapture(e.pointerId);rect={x:start.x,y:start.y,width:0,height:0};paint();},{signal:events.signal});
-  surface.addEventListener('pointermove',e=>{surface.style.setProperty('--cx',Math.max(0,Math.min(viewport.width,e.clientX))+'px');surface.style.setProperty('--cy',Math.max(0,Math.min(viewport.height,e.clientY))+'px');if(!start)return;const x=Math.max(0,Math.min(viewport.width,e.clientX)),y=Math.max(0,Math.min(viewport.height,e.clientY));rect={x:Math.min(x,start.x),y:Math.min(y,start.y),width:Math.abs(x-start.x),height:Math.abs(y-start.y)};paint();},{signal:events.signal});
+  const paint=()=>{surface.style.background='transparent';surface.style.setProperty('--cx',rect.x+'px');surface.style.setProperty('--cy',rect.y+'px');box.hidden=false;Object.assign(box.style,{left:rect.x+'px',top:rect.y+'px',width:rect.width+'px',height:rect.height+'px'});measure.textContent=Math.round(rect.width)+' × '+Math.round(rect.height);confirm.disabled=rect.width<8||rect.height<8;root.querySelector('.bar span').textContent=Math.round(rect.width)+' × '+Math.round(rect.height)+' · 拖内部移动，拖边角缩放';};
+  surface.addEventListener('pointerdown',e=>{if(e.button!==0||e.composedPath().includes(bar))return;e.preventDefault();const handle=e.target.closest?.('[data-handle]')?.dataset.handle,move=e.composedPath().includes(box);start={x:Math.max(0,Math.min(viewport.width,e.clientX)),y:Math.max(0,Math.min(viewport.height,e.clientY)),id:e.pointerId,handle:handle||(move?'move':null),original:rect?{...rect}:null};surface.setPointerCapture(e.pointerId);if(!start.handle)rect={x:start.x,y:start.y,width:0,height:0};paint();},{signal:events.signal});
+  surface.addEventListener('pointermove',e=>{surface.style.setProperty('--cx',Math.max(0,Math.min(viewport.width,e.clientX))+'px');surface.style.setProperty('--cy',Math.max(0,Math.min(viewport.height,e.clientY))+'px');if(!start||start.id!==e.pointerId)return;const x=Math.max(0,Math.min(viewport.width,e.clientX)),y=Math.max(0,Math.min(viewport.height,e.clientY));rect=start.handle?dragCaptureRect(start.original,start.handle,x-start.x,y-start.y,viewport):{x:Math.min(x,start.x),y:Math.min(y,start.y),width:Math.abs(x-start.x),height:Math.abs(y-start.y)};paint();},{signal:events.signal});
   surface.addEventListener('pointerup',e=>{if(surface.hasPointerCapture(e.pointerId))surface.releasePointerCapture(e.pointerId);start=null;},{signal:events.signal});
   surface.addEventListener('pointercancel',()=>{start=null;},{signal:events.signal});
   bar.addEventListener('click',e=>{const b=e.target.closest('[data-do]');if(!b||b.disabled)return;if(b.dataset.do==='cancel')cancel();else finish({region:captureRegion(b.dataset.do==='all'?null:rect,viewport),viewport});},{signal:events.signal});
-  doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancel();}else if(e.key==='Enter'&&!confirm.disabled){e.preventDefault();finish({region:captureRegion(rect,viewport),viewport});}else if(e.key==='Tab'){const buttons=[...bar.querySelectorAll('button')].filter(b=>!b.disabled),i=buttons.indexOf(root.activeElement);e.preventDefault();buttons[(i+(e.shiftKey?-1:1)+buttons.length)%buttons.length]?.focus();}},{capture:true,signal:events.signal});
+  doc.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancel();}else if(e.key==='Enter'&&root.activeElement?.tagName!=='BUTTON'&&!confirm.disabled){e.preventDefault();finish({region:captureRegion(rect,viewport),viewport});}else if(e.key==='Tab'){const buttons=[...bar.querySelectorAll('button')].filter(b=>!b.disabled),i=buttons.indexOf(root.activeElement);e.preventDefault();buttons[(i+(e.shiftKey?-1:1)+buttons.length)%buttons.length]?.focus();}},{capture:true,signal:events.signal});
   win.addEventListener('resize',()=>finish(null,Error('页面尺寸改变，请重新框选。')),{signal:events.signal});win.addEventListener('pagehide',cancel,{once:true,signal:events.signal});
   if(signal?.aborted){cancel();return;}signal?.addEventListener('abort',cancel,{once:true});doc.documentElement.append(host);surface.focus({preventScroll:true});
  });
 }
 
 // 由共享源打包为单个 ISOLATED 内容脚本。
-(() => {
+function bootCollector(){
  if(globalThis.__refellowFloating){globalThis.__refellowFloating.show();return;}
- let ui,recording=null,busy=false,closed=false,pendingShot=null;const lifetime=new AbortController();
+ let ui,recording=null,recordingControls,busy=false,closed=false,pendingShot=null;const lifetime=new AbortController();
  const request=async(action,data={})=>{const response=await chrome.runtime.sendMessage({type:'refellow/floating',action,pageURL:location.href,...data});if(!response?.ok)throw Object.assign(Error(response?.error||'连接已断开，请重新点击工具栏。'),{code:response?.code});return response;};
  const sync=()=>ui.state({pending:busy,isRecording:!!recording,review:false});
  async function action(name){
@@ -106,8 +136,8 @@ function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=fa
     if(pendingShot){ui.notice('正在保存到网站…');await request('shot-save',pendingShot);pendingShot=null;ui.notice('截图已保存到网站“我的收藏”。');}
    }
    if(name==='record'){
-    await ui.withoutOverlay(async()=>{const selected=await selectCaptureRegion(document,{kind:'录制',signal:lifetime.signal});if(!selected)return;await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));recording=await request('record-start',{region:selected.region});});
-    if(recording)ui.notice('正在录制，再点一次“停止录制”即可保存。');
+    await ui.withoutOverlay(async()=>{const selected=await selectCaptureRegion(document,{kind:'录制',signal:lifetime.signal});if(!selected)return;ui.suspend();await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));recording=await request('record-start',{region:selected.region});});
+    if(recording){ui.suspend();recordingControls=mountRecordingControls(document,{region:recording.region,onStop:()=>action('record'),onCancel:()=>action('cancel-record')});}
    }
    if(name==='website'||name==='inbox')await request('website');
    if(name==='connect')await request('connect');
@@ -115,9 +145,12 @@ function selectCaptureRegion(doc,{image=null,kind='截图',signal,inspectable=fa
   finally{busy=false;sync();}
  }
  ui=mountFloatingCollector(document,{onAction:action,onPosition:position=>request('position',{position}).catch(e=>ui.notice(e.message,true))});globalThis.__refellowFloating=ui;
- chrome.runtime.onMessage.addListener(message=>{if(message?.type==='refellow/show')ui.show();if(message?.type==='refellow/record-error'){ui.resume();sync();ui.open(true);ui.notice(message.error+' 录像暂留内存，点击工具栏重试保存。',true);}if(message?.type==='refellow/record-complete'){recording=null;ui.resume();sync();ui.open(true);ui.notice(message.cancelled?'录制已取消。':'录像已保存到网站“我的收藏”。');}});
+ const onMessage=(message,sender,respond)=>{if(message?.type==='refellow/context'){respond({url:location.href,title:document.title});return;}if(message?.type==='refellow/record-processing'){recordingControls?.dispose();ui.resume();ui.open(true);ui.notice('录制已停止，正在保存到网站…');}if(message?.type==='refellow/show'&&!recording)ui.show();if(message?.type==='refellow/record-error'){recordingControls?.dispose();ui.resume();sync();ui.open(true);ui.notice(message.error+' 录像暂留内存，点击工具栏重试保存。',true);}if(message?.type==='refellow/record-complete'){recordingControls?.dispose();recording=null;ui.resume();sync();ui.open(true);ui.notice(message.cancelled?'录制已取消。':'录像已保存到网站“我的收藏”。');}};
+ chrome.runtime.onMessage.addListener(onMessage);
  request('preferences').then(({position})=>{if(position&&!closed)ui.setPosition(position);}).catch(e=>ui.notice(e.message,true));
- window.addEventListener('pagehide',()=>{closed=true;lifetime.abort();if(recording)request('record-stop').catch(()=>{});ui.dispose();delete globalThis.__refellowFloating;},{once:true});
-})();
+ window.addEventListener('pagehide',()=>{closed=true;lifetime.abort();recordingControls?.dispose();chrome.runtime.onMessage.removeListener(onMessage);if(recording)request('record-stop').catch(()=>{});ui.dispose();delete globalThis.__refellowFloating;},{once:true});
+}
+bootCollector();
+window.addEventListener('pageshow',e=>{if(e.persisted)bootCollector();});
 
 })();

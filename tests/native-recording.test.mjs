@@ -18,3 +18,9 @@ test('非当前网页和非录制文档不能启动或完成录像',async()=>{
  await assert.rejects(()=>native.startTabRecording(f.api,f.sender,{pageURL:subject.url}),/回到要录制/);assert.equal(f.hasDocument(),false);
  await assert.rejects(()=>native.finishTabRecording(f.api,{id:'qa'},{id:f.api.runtime.id,url:'https://attacker.test/'}),/拒绝/);
 });
+test('未授权当前标签页时提供中文步骤并关闭空录制文档',async()=>{
+ const f=fixture(),native=await import('../采集器/native-recording.js?test-permission');
+ f.api.tabCapture.getMediaStreamId=async()=>{throw Error('Extension has not been invoked for the current page');};
+ await assert.rejects(native.startTabRecording(f.api,f.sender,{pageURL:subject.url,region:{x:0,y:0,width:1,height:1}}),/扩展菜单点一次参伴/);
+ assert.equal(f.hasDocument(),false);
+});
