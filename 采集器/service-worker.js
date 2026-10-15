@@ -2,6 +2,11 @@ import {cleanURL} from './core.js';
 import {handleFloatingMessage} from './floating-background.js';
 import {stopTabRecording,finishTabRecording,failedTabRecording,processingTabRecording} from './native-recording.js';
 import {clearExpiredShots} from './pending-shots.js';
+import {synchronizeAccount,enableLocalBridge} from './account-session.js';
+let accountQueue=Promise.resolve();
+enableLocalBridge(chrome).catch(()=>{});
+chrome.permissions.onAdded.addListener(()=>enableLocalBridge(chrome).catch(()=>{}));
+chrome.runtime.onInstalled.addListener(async()=>{await enableLocalBridge(chrome).catch(()=>{});const tabs=await chrome.tabs.query({url:['https://lingganji.pages.dev/*','https://*.lingganji.pages.dev/*']});for(const tab of tabs)await chrome.scripting.executeScript({target:{tabId:tab.id},files:['account-bridge.js']}).catch(()=>{});});
 clearExpiredShots().catch(()=>{});
 // 黄页18站由manifest自动注入，其余网页由工具栏手势注入；无侧栏。
 chrome.action.onClicked.addListener(async tab=>{
@@ -18,6 +23,7 @@ chrome.action.onClicked.addListener(async tab=>{
   }
 });
 chrome.runtime.onMessage.addListener((message,sender,respond)=>{
+  if(message?.type==='refellow/account-sync'){accountQueue=accountQueue.catch(()=>{}).then(()=>synchronizeAccount(chrome,message,sender));accountQueue.then(respond,e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type==='refellow/record-processing'){processingTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type==='refellow/record-finished'){finishTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}
   if(message?.type==='refellow/record-failed'){failedTabRecording(chrome,message,sender).then(()=>respond({ok:true}),e=>respond({ok:false,error:e.message}));return true;}

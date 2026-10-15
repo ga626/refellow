@@ -22,12 +22,12 @@ export async function trustedPage(api,sender,expectedURL){
 }
 export async function handleFloatingMessage(message,sender,api=chrome,save=saveCapture){
   const page=await trustedPage(api,sender,message.pageURL);
-  if(message.action==='connect'){await api.tabs.create({url:api.runtime.getURL('connect.html')});return {};}
+  if(message.action==='connect'){const data=await api.storage.local.get(['refellow/cloud-connection','refellow/account-origin']);await api.tabs.create({url:captureOrigin(data['refellow/cloud-connection']?.origin||data['refellow/account-origin']||CLOUD_ORIGIN)+'/#account'});return {};}
   if(message.action==='website'){const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];await api.tabs.create({url:captureOrigin(connection?.origin||CLOUD_ORIGIN)+'/#collection'});return {};}
   if(message.action==='record-start'){pixelRegion(message.region,1000,1000);return startTabRecording(api,sender,message);}
   if(message.action==='record-stop'){await stopTabRecording(api,page.tabId,message.cancel===true);return {};}
   if(message.action==='shot-start'){
-    const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];if(!connection?.token)throw Error('请先在网站登录并连接采集器。');
+    const connection=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];if(!connection?.token)throw Error('请先登录参伴网站，采集器会自动识别账户。点击菜单中的“账户”前往登录。');
     const [active]=await api.tabs.query({active:true,currentWindow:true});if(active?.id!==page.tabId)throw Error('请回到要截图的网页。');
     let data;try{data=await api.tabs.captureVisibleTab(page.windowId,{format:'png'});}catch(e){throw Error('当前网页尚未授权截图。请在 Edge 右上角扩展菜单点一次参伴，再回小球截图。'+(e.message?'（'+e.message+'）':''));}await trustedPage(api,sender,page.url);
     const [after]=await api.tabs.query({active:true,currentWindow:true});if(after?.id!==page.tabId)throw Error('截图时切换了网页，请重试。');

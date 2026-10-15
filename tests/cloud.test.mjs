@@ -1,3 +1,4 @@
+import {registerVerified} from './helpers/email-account.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFile} from 'node:fs/promises';
 import {handleCloudRequest} from '../cloud/api.js';
 import {emptyState} from '../public/store.js';
@@ -6,9 +7,9 @@ function fixture(schema){const sqlite=new DatabaseSync(':memory:');sqlite.exec(s
 test('云端个人空间：两个账户隔离、跨端持久、陈旧保存拒绝、设备只可采集',async()=>{
  const f=fixture(await readFile(new URL('../cloud/schema.sql',import.meta.url),'utf8'));
  const call=(path,options={})=>handleCloudRequest(new Request('https://refellow.test/api'+path,{...options,headers:{Origin:'https://refellow.test',...options.headers}}),f.env);
- const register=async username=>{const r=await call('/register',{method:'POST',body:JSON.stringify({username,password:'QA-Password-DoNotDeploy-2026'})});assert.equal(r.status,201);return {cookie:r.headers.get('Set-Cookie').split(';')[0],body:await r.json()};};
+ const register=async username=>{const r=await registerVerified(call,f.env,{username,password:'QA-Password-DoNotDeploy-2026'});assert.equal(r.status,201);return {cookie:r.headers.get('Set-Cookie').split(';')[0],body:await r.json()};};
  try{
-  const alice=await register('alice'),bob=await register('bob');assert.match(alice.cookie,/refellow_session=/);assert.ok(alice.body.recoveryCode);
+  const alice=await register('alice'),bob=await register('bob');assert.match(alice.cookie,/refellow_session=/);assert.equal(alice.body.emailVerified,true);assert.equal(alice.body.recoveryCode,undefined);
   let response=await call('/workspace',{headers:{Cookie:alice.cookie}});assert.deepEqual((await response.json()).state,emptyState());
   const next=emptyState();next.siteSaved.push('test-site');response=await call('/workspace',{method:'PUT',headers:{Cookie:alice.cookie,'If-Match':'0'},body:JSON.stringify(next)});assert.equal(response.status,200);
   response=await call('/workspace',{method:'PUT',headers:{Cookie:alice.cookie,'If-Match':'0'},body:JSON.stringify(emptyState())});assert.equal(response.status,409);
@@ -16,9 +17,7 @@ test('云端个人空间：两个账户隔离、跨端持久、陈旧保存拒�
   response=await call('/workspace',{method:'PUT',headers:{Cookie:bob.cookie,'If-Match':'0','X-Refellow-Account':'alice'},body:JSON.stringify(next)});assert.equal(response.status,409);response=await call('/workspace',{headers:{Cookie:bob.cookie}});assert.equal((await response.json()).state.siteSaved.length,0);
   response=await call('/workspace',{headers:{Cookie:bob.cookie,'X-Refellow-Account':'alice'}});assert.equal(response.status,409);
 
-  response=await call('/pair',{method:'POST',headers:{Cookie:alice.cookie}});const {code}=await response.json();
-  response=await call('/pair/redeem',{method:'POST',headers:{Origin:'chrome-extension://'+'a'.repeat(32)},body:JSON.stringify({code})});assert.equal(response.status,200);const {token}=await response.json();
-  response=await call('/pair/redeem',{method:'POST',headers:{Origin:'chrome-extension://'+'a'.repeat(32)},body:JSON.stringify({code})});assert.equal(response.status,401);
+  response=await call('/collector/session',{method:'POST',headers:{Cookie:alice.cookie},body:JSON.stringify({extensionId:'a'.repeat(32)})});assert.equal(response.status,200);const {token}=await response.json();
   response=await call('/workspace',{headers:{Authorization:'Bearer '+token}});assert.equal(response.status,403);
   const bytes=new Uint8Array([137,80,78,71,13,10,26,10]),sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');
   response=await call('/uploads',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify({page:{url:'https://example.org/real-page',title:'QA screenshot'},mime:'image/png',size:bytes.length,sha256:sha,chunkHashes:[sha]})});assert.equal(response.status,201);const {id}=await response.json();
@@ -37,7 +36,7 @@ test('分块媒体真实往返、损坏拒绝与重复保存幂等',async()=>{
  let cookie;const raw=(path,options={})=>handleCloudRequest(new Request('https://refellow.test/api'+path,{...options,headers:{Origin:'https://refellow.test',Cookie:cookie||'',...options.headers}}),f.env);
  const api=async(path,options)=>{const response=await raw(path,options);if(!response.ok)throw Object.assign(Error((await response.json()).error),{status:response.status});return response;};
  try{
-  const account=await raw('/register',{method:'POST',body:JSON.stringify({username:'media-test',password:'QA-Media-Password-2026'})});cookie=account.headers.get('Set-Cookie').split(';')[0];
+  const account=await registerVerified(raw,f.env,{username:'media-test',password:'QA-Media-Password-2026'});cookie=account.headers.get('Set-Cookie').split(';')[0];
   const data=new Uint8Array(700000);data.set([137,80,78,71,13,10,26,10]);for(let i=8;i<data.length;i++)data[i]=i%251;
   const blob=new Blob([data],{type:'image/png'}),input={id:'qa-stable-media',page:{url:'https://example.org/multi-chunk',title:'QA only'}};
   await uploadCloudMedia(api,blob,input);await uploadCloudMedia(api,blob,input);
@@ -57,15 +56,16 @@ test('密码恢复撤销旧登录、设备撤销、删除账户级联，跨源�
  const call=(path,options={})=>handleCloudRequest(new Request('https://refellow.test/api'+path,{...options,headers:{Origin:'https://refellow.test',...options.headers}}),f.env);
  const password='QA-Recovery-Password-2026';
  try{
-  let r=await call('/register',{method:'POST',body:JSON.stringify({username:'recovery-test',password})});const cookie=r.headers.get('Set-Cookie').split(';')[0],registered=await r.json();
-  r=await call('/pair',{method:'POST',headers:{Cookie:cookie}});const pair=await r.json();
-  r=await call('/pair/redeem',{method:'POST',headers:{Origin:'chrome-extension://'+'a'.repeat(32)},body:JSON.stringify(pair)});const {token}=await r.json();
+  let r=await registerVerified(call,f.env,{email:'recovery-test@example.test',password});const cookie=r.headers.get('Set-Cookie').split(';')[0],registered=await r.json();
+  r=await call('/collector/session',{method:'POST',headers:{Cookie:cookie},body:JSON.stringify({extensionId:'a'.repeat(32)})});const {token}=await r.json();
   r=await call('/logout',{method:'POST',headers:{Cookie:cookie,Origin:'https://attacker.test'}});assert.equal(r.status,403);
   r=await call('/devices/revoke',{method:'POST',headers:{Cookie:cookie}});assert.equal(r.status,200);
   r=await call('/account',{headers:{Authorization:'Bearer '+token}});assert.equal(r.status,401);
-  r=await call('/recover',{method:'POST',body:JSON.stringify({username:'recovery-test',password:password+'new',recoveryCode:' '+registered.recoveryCode.toUpperCase()+' '})});assert.equal(r.status,200);const newCookie=r.headers.get('Set-Cookie').split(';')[0];
+  await f.env.DB.prepare('DELETE FROM rate_limits').run();let resetMail;f.env.MAIL_SEND=async mail=>{resetMail=mail;};
+  r=await call('/email/code',{method:'POST',body:JSON.stringify({email:registered.email,purpose:'reset'})});assert.equal(r.status,200);
+  r=await call('/password/reset',{method:'POST',body:JSON.stringify({email:registered.email,password:password+'new',code:resetMail.code})});assert.equal(r.status,200);const newCookie=r.headers.get('Set-Cookie').split(';')[0];
   r=await call('/account',{headers:{Cookie:cookie}});assert.equal(r.status,401);
-  r=await call('/login',{method:'POST',body:JSON.stringify({username:'recovery-test',password})});assert.equal(r.status,401);
+  r=await call('/login',{method:'POST',body:JSON.stringify({email:registered.email,password})});assert.equal(r.status,401);
   r=await call('/account',{method:'DELETE',headers:{Cookie:newCookie},body:JSON.stringify({password:password+'new'})});assert.equal(r.status,200);
   for(const table of ['users','workspaces','pair_codes','sessions','uploads','chunks'])assert.equal((await f.env.DB.prepare('SELECT COUNT(*) AS count FROM '+table).first()).count,0);
  }finally{f.close();}

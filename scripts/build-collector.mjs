@@ -12,7 +12,7 @@ await buildCollectorIcons();
 await buildFloating();
 const names=['manifest.json','service-worker.js','popup.html','capture.css','capture.js','recorder.html','recorder.js','sidepanel.html','desk.js','inbox.js','core.js','browser.js','catalog.json','lib.js','README.md',...['attachments.js','media-store.js','recipes.js','zip.js','screen-recorder.js'].map(n=>'shared/'+n)];
 names.push(...[16,32,48,128].map(size=>'icons/icon-'+size+'.png'));
-names.push('floating.js','floating-background.js','native-recording.js','pending-shots.js','offscreen.html','offscreen.js','cloud-connection.js','connect.html','connect.css','connect.js','shared/capture-region.js','shared/cloud-media.js');
+names.push('floating.js','floating-background.js','native-recording.js','pending-shots.js','offscreen.html','offscreen.js','cloud-connection.js','account-bridge.js','account-session.js','connect.html','connect.css','connect.js','shared/capture-region.js','shared/cloud-media.js');
 const files=[];for(const name of names)files.push({name,data:new Uint8Array(await readFile(path.join(root,'采集器',name)))});
 files.push({name:'LICENSE',data:new Uint8Array(await readFile(path.join(root,'LICENSE')))});
 const identity=sourceIdentity(root,['LICENSE','scripts/build-collector.mjs','scripts/source-identity.mjs',...names.map(n=>'采集器/'+n),...['floating-ui.js','screen-recorder.js'].map(n=>'public/collector/'+n)]);

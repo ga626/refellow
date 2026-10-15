@@ -1,5 +1,6 @@
 import {emptyState,normalizeWorkspace,normalizeReference,addReference} from '../public/store.js';
 import {safeURL} from '../public/lib.js';
+import {mailReady,sendAccountMail} from './mail.js';
 const text=new TextEncoder(),MAX_MEDIA=64*1024*1024,CHUNK=512*1024;
 const hex=bytes=>[...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,'0')).join('');
 const random=n=>hex(crypto.getRandomValues(new Uint8Array(n)));
@@ -26,10 +27,10 @@ export async function handleCloudRequest(request,env){
   const chunks=[];let size=0;try{for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>max){await reader.cancel();fail('请求太大。',413);}chunks.push(value);}}finally{reader.releaseLock();}
   const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}return bytes;
  }
- async function readJSON(max=256*1024){const raw=new TextDecoder().decode(await readBytes(max));try{return JSON.parse(raw);}catch{fail('请求格式错误。');}}
+ async function readJSON(max=256*1024){const raw=new TextDecoder().decode(await readBytes(max));try{const value=JSON.parse(raw);if(!value||typeof value!=='object'||Array.isArray(value))fail('请求格式错误。');return value;}catch{fail('请求格式错误。');}}
  function workspaceBody(state){const body=JSON.stringify(state);if(text.encode(body).length>MAX_WORKSPACE)fail('参考文字和项目资料已达到首版空间上限，请精简后保存。',413);return body;}
- async function rate(key,max=10){
-  const id=await hash(key+env.AUTH_PEPPER),window=5*60*1000;
+ async function rate(key,max=10,window=5*60*1000){
+  const id=await hash(key+env.AUTH_PEPPER);
   await q('DELETE FROM rate_limits WHERE reset_at<?',now).run();
   await q('INSERT INTO rate_limits(key,attempts,reset_at) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET attempts=CASE WHEN reset_at<? THEN 1 ELSE attempts+1 END, reset_at=CASE WHEN reset_at<? THEN excluded.reset_at ELSE reset_at END',id,now+window,now,now).run();
   const row=await q('SELECT attempts FROM rate_limits WHERE key=?',id).first();if(row.attempts>max)fail('尝试过于频繁，请稍后重试。',429);
@@ -38,52 +39,89 @@ export async function handleCloudRequest(request,env){
   const bearer=request.headers.get('Authorization'),raw=bearer?.startsWith('Bearer ')?bearer.slice(7):request.headers.get('Cookie')?.match(/(?:^|;\s*)refellow_session=([a-f0-9]{64})(?:;|$)/)?.[1];
   if(!raw||!/^[a-f0-9]{64}$/.test(raw))fail('请先登录。',401);
   const row=await q('SELECT sessions.user_id,sessions.scope,users.username FROM sessions JOIN users ON users.id=sessions.user_id WHERE sessions.token_hash=? AND sessions.expires>?',await hash(raw),now).first();if(!row)fail('登录已过期，请重新登录。',401);
+  if(row.scope==='capture'){const parent=await q('SELECT s.expires FROM capture_sessions c JOIN sessions s ON s.token_hash=c.parent_hash WHERE c.token_hash=? AND s.expires>?',await hash(raw),now).first();if(!parent)fail('网站登录已失效，请回参伴重新登录。',401);}
   const expected=request.headers.get('X-Refellow-Account');if(expected&&expected!==row.username)fail('其他页面已切换账户，请刷新后重新操作；未保存到其他账户。',409);
   if(!bearer&&request.method!=='GET'&&!website)fail('来源不受信任。',403);return {...row,raw};
  }
  async function newSession(user,scope){const token=random(32);await q('DELETE FROM sessions WHERE expires<?',now).run();await q('DELETE FROM sessions WHERE token_hash IN (SELECT token_hash FROM sessions WHERE user_id=? ORDER BY expires LIMIT (SELECT MAX(COUNT(*)-19,0) FROM sessions WHERE user_id=?))',user,user).run();await q('INSERT INTO sessions VALUES(?,?,?,?)',await hash(token),user,scope,now+30*24*60*60*1000).run();return token;}
  async function ownedUpload(user,id){const row=await q('SELECT * FROM uploads WHERE id=? AND user_id=?',id,user).first();if(!row)fail('没有这份媒体。',404);return row;}
+ const emailValue=value=>{const email=String(value||'').normalize('NFKC').trim().toLowerCase();if(email.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(email))fail('请输入有效的邮箱地址。');return email;};
+ const displayValue=value=>{const name=String(value||'').normalize('NFKC').trim();if(name.length>24||/[\p{Cc}\p{Cf}]/u.test(name))fail('昵称最多24个字符，请勿使用控制字符。');return name;};
+ async function profile(id,username){const p=await q('SELECT email,display_name FROM account_profiles WHERE user_id=?',id).first();return {username,displayName:p?.display_name||'参伴用户'+id.slice(-4),email:p?.email||null,emailVerified:!!p?.email,development};}
+ async function consumeCode(email,purpose,code){
+  const row=await q('SELECT * FROM email_codes WHERE email=? AND purpose=?',email,purpose).first();
+  if(!row||!row.sent||row.expires<=now||row.attempts>=5)fail('验证码已失效，请重新获取。',400);
+  await q('UPDATE email_codes SET attempts=attempts+1 WHERE email=? AND purpose=? AND digest=?',email,purpose,row.digest).run();
+  if(!/^\d{6}$/.test(String(code))||!constantEqual(row.digest,await hash(email+':'+purpose+':'+code+env.AUTH_PEPPER)))fail('验证码不正确，请检查邮件。');
+  const result=await q('DELETE FROM email_codes WHERE email=? AND purpose=? AND digest=? AND attempts<=5 AND expires>? AND sent=1',email,purpose,row.digest,now).run();if(result.meta.changes!==1)fail('验证码已使用，请重新获取。',409);
+ }
+ async function retireBrowserSession(){const raw=request.headers.get('Cookie')?.match(/(?:^|;\s*)refellow_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(raw)await q("DELETE FROM sessions WHERE token_hash=? AND scope='website'",await hash(raw)).run();}
  try{
   if(request.method==='OPTIONS')return extension?new Response(null,{status:204,headers}):json({error:'来源不受信任。'},403);
   const path=url.pathname.replace(/^\/api/,'');
-  if(path==='/status'&&request.method==='GET')return json({ready:!!db&&typeof env.AUTH_PEPPER==='string'&&env.AUTH_PEPPER.length>=32,development});
-  if(!/^\/(register|login|recover|logout|account|devices\/revoke|pair(?:\/redeem)?|workspace|uploads(?:\/[a-zA-Z0-9_-]+\/(?:\d+|complete))?|media\/[a-zA-Z0-9_-]+(?:\/\d+)?)$/.test(path))return json({error:'没有此接口。'},404);
+  if(path==='/status'&&request.method==='GET')return json({ready:!!db&&typeof env.AUTH_PEPPER==='string'&&env.AUTH_PEPPER.length>=32,development,emailReady:mailReady(env)});
+  if(!/^\/(register|login|recover|logout|account|email\/(code|bind)|password\/reset|collector\/session|devices\/revoke|pair(?:\/redeem)?|workspace|uploads(?:\/[a-zA-Z0-9_-]+\/(?:\d+|complete))?|media\/[a-zA-Z0-9_-]+(?:\/\d+)?)$/.test(path))return json({error:'没有此接口。'},404);
   if(!db||typeof env.AUTH_PEPPER!=='string'||env.AUTH_PEPPER.length<32)return json({error:'个人云空间尚未配置，暂不能登录或保存。'},503);
-  if(path==='/register'||path==='/login'||path==='/recover'){
+  if(path==='/recover'||path.startsWith('/pair'))return json({error:'请在参伴网站登录；密码通过已验证邮箱重置。无需连接码或恢复码。'},410);
+  if(path==='/email/code'){
    if(request.method!=='POST'||!website)fail('请从参伴网站操作。',403);
-   const body=await readJSON(),username=String(body.username||'').normalize('NFKC').trim().toLowerCase();
-   if(!/^[\p{L}\p{N}_.@-]{3,64}$/u.test(username))fail('用户名需为3–64个字符，可使用中文、字母、数字及 . _ - @。');
-   if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('密码需为12–128个字符，可使用密码短语，无需特殊符号。');
-   await rate('auth-ip:'+request.headers.get('CF-Connecting-IP'));await rate('auth-user:'+username,12);
-   const existing=await q('SELECT * FROM users WHERE username=?',username).first();
-   if(path==='/register'){
-    if(existing)fail('此用户名已存在。',409);if((await q('SELECT COUNT(*) AS count FROM users').first()).count>=500)fail('首版免费空间的账户名额已满，请联系支持。',503);const id='user-'+crypto.randomUUID(),salt=random(16),recovery=random(16),derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
-    const created=await db.batch([q('INSERT INTO users SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<500',id,username,salt,derived,await hash(recovery+env.AUTH_PEPPER),now),q('INSERT INTO workspaces SELECT ?,?,0 WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,JSON.stringify(emptyState()),id)]);if(created[0].meta.changes!==1)fail('首版免费空间的账户名额已满，请联系支持。',503);
-    const token=await newSession(id,'website');return json({username,development,recoveryCode:recovery},201,{'Set-Cookie':cookie(token)});
-   }
-   if(path==='/recover'){
-    if(!existing||!constantEqual(existing.recovery_hash,await hash(String(body.recoveryCode||'').trim().toLowerCase()+env.AUTH_PEPPER)))fail('用户名或恢复码错误。',401);
-    const salt=random(16),recovery=random(16);await db.batch([q('UPDATE users SET salt=?,password_hash=?,recovery_hash=? WHERE id=?',salt,await passwordHash(body.password,salt,env.AUTH_PEPPER),await hash(recovery+env.AUTH_PEPPER),existing.id),q('DELETE FROM sessions WHERE user_id=?',existing.id)]);
-    return json({username,development,recoveryCode:recovery},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
-   }
-   const derived=await passwordHash(body.password,existing?.salt||'invalid-account-dummy-salt',env.AUTH_PEPPER);if(!existing||!constantEqual(derived,existing.password_hash))fail('用户名或密码错误。',401);
-   return json({username,development},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
+   if(!mailReady(env))fail('邮件服务尚未配置，暂不能发送验证码。已有账户仍可登录。',503);
+   const body=await readJSON(),email=emailValue(body.email),purpose=body.purpose;if(!['register','reset','bind'].includes(purpose))fail('验证码用途无效。');
+   if(purpose==='bind'){const session=await authenticate();if(session.scope!=='website')fail('请在网站绑定邮箱。',403);}
+   await rate('email-ip:'+request.headers.get('CF-Connecting-IP'),10);await rate('email-minute:'+email,1,60000);await rate('email-day',90,24*60*60*1000);
+   const bytes=new Uint32Array(1);do{crypto.getRandomValues(bytes);}while(bytes[0]>=4294000000);const code=String(bytes[0]%1000000).padStart(6,'0'),digest=await hash(email+':'+purpose+':'+code+env.AUTH_PEPPER);
+   await q('DELETE FROM email_codes WHERE expires<?',now).run();
+   await q('INSERT INTO email_codes VALUES(?,?,?,?,0,0) ON CONFLICT(email,purpose) DO UPDATE SET digest=excluded.digest,expires=excluded.expires,attempts=0,sent=0',email,purpose,digest,now+10*60*1000).run();
+   try{await sendAccountMail(env,email,code,purpose);await q('UPDATE email_codes SET sent=1 WHERE email=? AND purpose=? AND digest=?',email,purpose,digest).run();}catch(e){await q('DELETE FROM email_codes WHERE email=? AND purpose=? AND digest=?',email,purpose,digest).run();throw e;}
+   return json({ok:true,retryAfter:60});
   }
-  if(path==='/pair/redeem'){
-   if(request.method!=='POST'||origin&&!extension)fail('请在采集器连接页输入连接码。',403);await rate('pair:'+request.headers.get('CF-Connecting-IP'));
-   const {code}=await readJSON(),digest=await hash(String(code||'').replace(/[-\s]/g,'').toLowerCase()),row=await q('SELECT * FROM pair_codes WHERE code_hash=? AND expires>?',digest,now).first();
-   if(!row)fail('连接码无效或已过期。',401);
-   const consumed=await q('DELETE FROM pair_codes WHERE code_hash=? AND expires>?',digest,now).run();if(consumed.meta.changes!==1)fail('连接码已经使用。',409);
-   const user=await q('SELECT username FROM users WHERE id=?',row.user_id).first();return json({token:await newSession(row.user_id,'capture'),username:user.username});
+  if(path==='/register'||path==='/login'||path==='/password/reset'){
+   if(request.method!=='POST'||!website)fail('请从参伴网站操作。',403);
+   const body=await readJSON(),identifier=String(body.email||body.username||'').normalize('NFKC').trim().toLowerCase();
+   if(!identifier||identifier.length>254)fail('请输入邮箱；旧账户也可使用原用户名登录。');
+   if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('密码需为12–128个字符，可使用密码短语，无需特殊符号。');
+   await rate('auth-ip:'+request.headers.get('CF-Connecting-IP'));await rate('auth-user:'+identifier,12);
+   const existing=await q('SELECT u.* FROM users u LEFT JOIN account_profiles p ON p.user_id=u.id WHERE u.username=? OR p.email=?',identifier,identifier).first();
+   if(path==='/register'){
+    const email=emailValue(body.email),displayName=displayValue(body.displayName)||'参伴用户'+random(2);
+    if(existing)fail('此邮箱已有账户，请登录；旧账户请先登录再绑定邮箱。',409);
+    if((await q('SELECT COUNT(*) AS count FROM users').first()).count>=500)fail('首版免费空间的账户名额已满，请联系支持。',503);
+    await consumeCode(email,'register',body.code);
+    const id='user-'+crypto.randomUUID(),salt=random(16),derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
+    const created=await db.batch([q('INSERT INTO users SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<500',id,email,salt,derived,'disabled',now),q('INSERT INTO workspaces SELECT ?,?,0 WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,JSON.stringify(emptyState()),id),q('INSERT INTO account_profiles SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,email,displayName,id)]);if(created[0].meta.changes!==1)fail('免费空间账户名额已满。',503);
+    await retireBrowserSession();return json(await profile(id,email),201,{'Set-Cookie':cookie(await newSession(id,'website'))});
+   }
+   if(path==='/password/reset'){
+    const email=emailValue(body.email);await consumeCode(email,'reset',body.code);
+    const account=await q('SELECT u.* FROM users u JOIN account_profiles p ON p.user_id=u.id WHERE p.email=?',email).first();if(!account)fail('此邮箱尚未绑定账户。旧账户请使用原用户名登录后绑定邮箱。');
+    const salt=random(16);await db.batch([q('UPDATE users SET salt=?,password_hash=?,recovery_hash=? WHERE id=?',salt,await passwordHash(body.password,salt,env.AUTH_PEPPER),'disabled',account.id),q('DELETE FROM sessions WHERE user_id=?',account.id),q('DELETE FROM pair_codes WHERE user_id=?',account.id)]);
+    await retireBrowserSession();return json(await profile(account.id,account.username),200,{'Set-Cookie':cookie(await newSession(account.id,'website'))});
+   }
+   const derived=await passwordHash(body.password,existing?.salt||'invalid-account-dummy-salt',env.AUTH_PEPPER);if(!existing||!constantEqual(derived,existing.password_hash))fail('邮箱或密码错误。旧账户也可使用原用户名登录。',401);
+   await retireBrowserSession();return json(await profile(existing.id,existing.username),200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
   }
   const session=await authenticate(),user=session.user_id;
+  if(path==='/collector/session'&&request.method==='POST'){
+   if(!website||session.scope!=='website')fail('请从参伴网站登录。',403);const body=await readJSON();if(!/^[a-p]{32}$/.test(body.extensionId||''))fail('采集器身份无效。');
+   const parent=await hash(session.raw),token=await hash('capture:'+session.raw+':'+body.extensionId+':'+env.AUTH_PEPPER),digest=await hash(token);
+   const parentRow=await q('SELECT expires FROM sessions WHERE token_hash=?',parent).first();
+   await db.batch([q("INSERT INTO sessions VALUES(?,?,'capture',?) ON CONFLICT(token_hash) DO NOTHING",digest,user,parentRow.expires),q('INSERT INTO capture_sessions VALUES(?,?) ON CONFLICT(token_hash) DO NOTHING',digest,parent)]);
+   return json({token,...await profile(user,session.username)});
+  }
   if(path==='/logout'&&request.method==='POST'){await q('DELETE FROM sessions WHERE token_hash=?',await hash(session.raw)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
-  if(path==='/account'&&request.method==='GET')return json({username:session.username,development:env.LOCAL_DEVELOPMENT===true});
+  if(path==='/account'&&request.method==='GET')return json(await profile(user,session.username));
+  if(path==='/account'&&request.method==='PATCH'){
+   if(!website||session.scope!=='website')fail('请在网站修改昵称。',403);const body=await readJSON(),name=displayValue(body.displayName);if(!name)fail('请填写昵称。');
+   await q('INSERT INTO account_profiles(user_id,email,display_name) VALUES(?,NULL,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name',user,name).run();return json(await profile(user,session.username));
+  }
+  if(path==='/email/bind'&&request.method==='POST'){
+   if(!website||session.scope!=='website')fail('请在网站绑定邮箱。',403);const body=await readJSON(),email=emailValue(body.email);
+   const old=await q('SELECT email FROM account_profiles WHERE user_id=?',user).first();if(old?.email)fail('邮箱已验证，无需重复绑定。',409);
+   if(await q('SELECT user_id FROM account_profiles WHERE email=? AND user_id<>?',email,user).first()||await q('SELECT id FROM users WHERE username=? AND id<>?',email,user).first())fail('此邮箱已关联其他账户。',409);
+   await consumeCode(email,'bind',body.code);await q('INSERT INTO account_profiles VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET email=excluded.email',user,email,'参伴用户'+user.slice(-4)).run();return json(await profile(user,session.username));
+  }
   if(path==='/devices/revoke'&&request.method==='POST'){if(session.scope!=='website')fail('请在网站管理设备。',403);await q("DELETE FROM sessions WHERE user_id=? AND scope='capture'",user).run();await q('DELETE FROM pair_codes WHERE user_id=?',user).run();return json({ok:true});}
   if(path==='/account'&&request.method==='DELETE'){if(session.scope!=='website')fail('请在网站删除账户。',403);const body=await readJSON();if(typeof body.password!=='string'||body.password.length>128)fail('密码错误。',401);const account=await q('SELECT salt,password_hash FROM users WHERE id=?',user).first();if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('密码错误。',401);if(env.MEDIA){const objects=(await q('SELECT c.storage_key FROM chunk_meta c JOIN uploads u ON u.id=c.upload_id WHERE u.user_id=?',user).all()).results;for(const object of objects)await env.MEDIA.delete(object.storage_key);}await q('DELETE FROM users WHERE id=?',user).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
-  if(path==='/pair'&&request.method==='POST'){
-   if(session.scope!=='website')fail('请在网站连接采集器。',403);await rate('pair-user:'+user,8);const code=random(8);await db.batch([q('DELETE FROM pair_codes WHERE user_id=?',user),q('INSERT INTO pair_codes VALUES(?,?,?)',await hash(code),user,now+5*60*1000)]);return json({code:code.match(/.{4}/g).join('-')});
-  }
   if(path==='/workspace'){
    if(session.scope!=='website')fail('没有网站管理权限。',403);
    const current=await q('SELECT * FROM workspaces WHERE user_id=?',user).first();

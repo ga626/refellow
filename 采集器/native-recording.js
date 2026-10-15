@@ -11,7 +11,7 @@ export async function startTabRecording(api,sender,message){
  await restore(api);if(recordings.size)throw Error('已有正在录制或待保存的网页；点击原网页工具栏参伴图标停止或重试。');
  if(!api.tabCapture?.getMediaStreamId||!api.offscreen?.createDocument)throw Error('当前Edge不支持标签页录制，请更新浏览器。');
  const credentials=(await api.storage.local.get('refellow/cloud-connection'))['refellow/cloud-connection'];
- if(!credentials?.token)throw Error('请先在网站登录并连接采集器。');
+ if(!credentials?.token)throw Error('请先登录参伴网站，采集器会自动识别账户。点击菜单中的“账户”前往登录。');
  if(!await api.offscreen.hasDocument()){opening??=api.offscreen.createDocument({url:'offscreen.html',reasons:['USER_MEDIA'],justification:'按用户框选录制当前标签页的可见画面，不录音'}).finally(()=>opening=null);await opening;}
  const id=crypto.randomUUID();let streamId;
  try{streamId=await api.tabCapture.getMediaStreamId({targetTabId:page.tabId});}catch(e){if(!recordings.size&&await api.offscreen.hasDocument())await api.offscreen.closeDocument();throw Error('当前网页尚未授权录屏。请在 Edge 右上角扩展菜单点一次参伴，再回小球录制。'+(e.message?'（'+e.message+'）':''));}

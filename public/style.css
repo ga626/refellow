@@ -35,3 +35,27 @@ dialog{border:0;border-radius:14px;padding:28px;max-width:min(560px,calc(100vw -
 .account-connection{margin-top:26px;border-top:1px solid var(--line);padding-top:23px}.account-dialog h3{font-size:16px}.account-connection>p,.account-pair-result>p,.account-recovery>p{font-size:12px;color:var(--muted);line-height:1.8;margin:8px 0 16px}.account-connection>.primary{width:100%}.account-dialog label{font-size:12px}.account-address input{font-size:13px;background:var(--surface)}.account-pair-result input,.account-recovery input{font-family:ui-monospace,monospace;font-size:15px;letter-spacing:.03em;background:var(--surface)}.account-recovery input{width:100%;padding:12px;border:1px solid var(--line);border-radius:6px;font-size:13px}.account-recovery{margin-top:24px}.account-recovery button{margin-top:12px}.account-status{font-size:12px;line-height:1.8;margin:12px 0;color:var(--muted)}.account-actions{display:flex;gap:10px;flex-wrap:wrap;padding-top:18px;border-top:1px solid var(--line)}.account-actions>.button{flex:1}.account-danger{margin-top:24px;color:var(--muted);font-size:12px}.account-danger summary{cursor:pointer;min-height:44px;padding:10px 0}.account-danger p{margin:8px 0}.account-danger button{color:#a12734}
 .mobile-account{display:none}
 @media(max-width:620px){.mobile-account{display:inline-flex;flex:none}.topbar .mobile-account{font-size:12px;max-width:105px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#form-dialog.account-dialog{padding:24px;max-height:calc(100dvh - 24px)}.account-brand{margin-bottom:22px}.account-dialog h2{font-size:24px}.auth-switch{margin:20px 0}.account-actions{flex-direction:column}}
+
+/* 账户是全站操作入口，桌面与手机均位于右上角。 */
+.account-control{flex:none;gap:8px;max-width:180px;min-height:44px}
+.account-control-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}
+.account-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;border-radius:50%;background:var(--blue-light);color:var(--blue);font-size:13px;font-weight:650}
+.account-avatar.large{width:52px;height:52px;font-size:23px}
+.account-identity{display:flex;align-items:center;gap:14px;margin:24px 0;font-size:20px}
+.account-profile label,.account-email label{font-size:13px;display:block;margin:16px 0 8px}
+.account-email{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
+.account-email h3,.account-connection h3{font-size:15px;margin:0 0 8px}
+.account-email p{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.account-email>.auth-link{margin-top:12px}
+.auth-code-row{display:flex;align-items:center;gap:10px}
+.auth-code-row input{flex:1;min-width:0;width:100%;margin:0}
+.auth-code-row button{flex:none;font-size:12px;padding-inline:12px;white-space:nowrap}
+.auth-optional{font-size:11px;font-weight:400;color:var(--muted);margin-left:6px}
+.auth-mail-status{font-size:12px;color:var(--blue);line-height:1.7;overflow-wrap:anywhere}
+.auth-mail-status:empty{display:none}
+.account-dialog{max-height:calc(100dvh - 32px);overflow-y:auto}
+.account-dialog input{caret-color:var(--blue)}
+.account-dialog .account-profile{margin-bottom:20px}
+@media(max-width:900px){.topbar{gap:12px}.account-control{max-width:150px}}
+@media(max-width:620px){.topbar{gap:8px}.topbar #add-site{display:none}.topbar .account-control{display:inline-flex;max-width:136px;padding:6px 8px}.account-control-name{max-width:80px;font-size:12px}.topbar .search-wrap{flex:1;min-width:72px;width:auto}.topbar .breadcrumb{display:none}.account-dialog{max-height:calc(100dvh - 24px)}.auth-code-row{gap:8px}.auth-code-row button{padding-inline:10px}.account-dialog .account-brand{margin-bottom:20px}}
+.account-dialog .account-brand{margin-bottom:18px}.account-dialog .auth-switch{margin-block:18px}.account-dialog .account-environment{padding:8px 10px;margin-top:14px;font-size:11px}.account-dialog .auth-form>[data-code],.account-dialog .auth-form>[data-confirm]{margin-top:16px}.account-dialog .auth-hint{margin-top:6px}.account-dialog .auth-submit{margin-top:16px}.account-dialog .auth-footnote{margin-top:14px}.account-profile input{width:100%;min-width:0;min-height:44px;padding:10px 12px;border:1px solid var(--field-border,#cfd8e6);border-radius:6px;font:inherit;background:var(--white);color:var(--ink)}.account-profile input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}@media(max-width:620px){.topbar .account-control{position:fixed;top:14px;right:18px;z-index:30;max-width:136px;background:var(--white)}.sidebar .brand{padding-right:138px}.topbar .search-wrap{width:100%;max-width:none}.topbar{z-index:35}}

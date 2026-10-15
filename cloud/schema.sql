@@ -11,3 +11,6 @@ CREATE TABLE IF NOT EXISTS chunks(upload_id TEXT NOT NULL REFERENCES uploads(id)
 CREATE TABLE IF NOT EXISTS chunk_meta(upload_id TEXT NOT NULL REFERENCES uploads(id) ON DELETE CASCADE, position INTEGER NOT NULL, storage_key TEXT NOT NULL, chunk_size INTEGER NOT NULL, PRIMARY KEY(upload_id,position));
 CREATE TABLE IF NOT EXISTS rate_limits(key TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS rate_expiry ON rate_limits(reset_at);
+CREATE TABLE IF NOT EXISTS account_profiles(user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, email TEXT UNIQUE, display_name TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS email_codes(email TEXT NOT NULL, purpose TEXT NOT NULL, digest TEXT NOT NULL, expires INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, sent INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(email,purpose));
+CREATE TABLE IF NOT EXISTS capture_sessions(token_hash TEXT PRIMARY KEY REFERENCES sessions(token_hash) ON DELETE CASCADE, parent_hash TEXT NOT NULL REFERENCES sessions(token_hash) ON DELETE CASCADE);

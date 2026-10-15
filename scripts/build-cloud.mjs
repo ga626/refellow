@@ -5,6 +5,7 @@ export async function buildCloudWorker(root){
  const lib='const lib='+await bundle('public/lib.js')+';\n';
  const attachments='const attachments='+await bundle('public/collector/attachments.js','const cleanURL=lib.safeURL;')+';\n';
  const store='const store='+await bundle('public/store.js','const {safeURL,identity}=lib;const {normalizeAttachments,normalizeProvenance,normalizeAnnotations,normalizeClip,mergeAttachments,sameReference}=attachments;')+';\n';
- const api='const api='+await bundle('cloud/api.js','const {emptyState,normalizeWorkspace,normalizeReference,addReference}=store;const {safeURL}=lib;')+';\n';
- return Buffer.from(lib+attachments+store+api+"export default {fetch(request,env){const url=new URL(request.url);return url.pathname.startsWith('/api/')?api.handleCloudRequest(request,env):env.ASSETS.fetch(request);}};\n");
+ const mail='const mail='+await bundle('cloud/mail.js')+';\n';
+ const api='const api='+await bundle('cloud/api.js','const {emptyState,normalizeWorkspace,normalizeReference,addReference}=store;const {safeURL}=lib;const {mailReady,sendAccountMail}=mail;')+';\n';
+ return Buffer.from(lib+attachments+store+mail+api+"export default {fetch(request,env){const url=new URL(request.url);return url.pathname.startsWith('/api/')?api.handleCloudRequest(request,env):env.ASSETS.fetch(request);}};\n");
 }
