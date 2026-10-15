@@ -34,6 +34,7 @@ test('空响应、错误页、截断下载均拒绝，不能生成伪下载成�
 });
 
 test('可下载 ZIP 每个条目的 CRC 与扩展源码一致，manifest 入口均在包内',async()=>{
+  const expectedVersion=JSON.parse(await readFile(new URL('../采集器/manifest.json',import.meta.url),'utf8')).version;
   const bytes=await readFile(new URL('../public/assets/collector.zip',import.meta.url)),entries=new Map();
   let offset=0;
   while(bytes.readUInt32LE(offset)===0x04034b50){
@@ -41,12 +42,12 @@ test('可下载 ZIP 每个条目的 CRC 与扩展源码一致，manifest 入口�
     const size=bytes.readUInt32LE(offset+18),nameSize=bytes.readUInt16LE(offset+26),extra=bytes.readUInt16LE(offset+28);
     const name=bytes.subarray(offset+30,offset+30+nameSize).toString(),start=offset+30+nameSize+extra;
     const data=bytes.subarray(start,start+size);assert.equal(crc32(data),bytes.readUInt32LE(offset+14),name);
-    if(name==='release-identity.json'){const identity=JSON.parse(data);assert.equal(identity.version,'0.5.2');assert.ok(['git-source-candidate','local-development-source-not-store-release'].includes(identity.kind));}
+    if(name==='release-identity.json'){const identity=JSON.parse(data);assert.equal(identity.version,expectedVersion);assert.ok(['git-source-candidate','local-development-source-not-store-release'].includes(identity.kind));}
     else assert.deepEqual(data,await readFile(new URL(name==='LICENSE'?'../LICENSE':'../采集器/'+name,import.meta.url)),name);
     assert.ok(!entries.has(name));entries.set(name,data);offset=start+size;
   }
   assert.equal(entries.size,bytes.readUInt16LE(bytes.length-12));
   const manifest=JSON.parse(entries.get('manifest.json'));
   for(const name of [manifest.background.service_worker,'floating.js','floating-background.js','capture.js','desk.js','recorder.js','shared/media-store.js'])assert.ok(entries.has(name),name);
-  assert.equal(manifest.version,'0.5.2');
+  assert.equal(manifest.version,expectedVersion);
 });
