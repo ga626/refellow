@@ -57,7 +57,7 @@ async function fixture(pullRequest=2){
  const dir=await mkdtemp(path.join(tmpdir(),'refellow-deployment-test-'));
  const zip=Buffer.from('immutable collector archive fixture');
  const identity={repository:'ga626/refellow',sourceCommit:sha,pullRequest};
- const files=new Map(Object.entries({'index.html':'<main>fixture</main>','_worker.js':'worker fixture','_headers':'headers fixture','_routes.json':'{}','source-identity.json':JSON.stringify(identity),'assets/collector.zip':zip}).map(([n,b])=>[n,Buffer.from(b)]));
+ const files=new Map(Object.entries({'index.html':'<main>fixture</main>','privacy.html':'<main>privacy fixture</main>','_worker.js':'worker fixture','_headers':'headers fixture','_routes.json':'{}','source-identity.json':JSON.stringify(identity),'assets/collector.zip':zip}).map(([n,b])=>[n,Buffer.from(b)]));
  const packageHash=hash(Buffer.from([...files].sort(([a],[b])=>a.localeCompare(b)).map(([n,b])=>n+':'+hash(b)).join('\n')));
  files.set('release.json',Buffer.from(JSON.stringify({packageHash})));
  for(const [name,bytes] of files){await mkdir(path.dirname(path.join(dir,'pages',name)),{recursive:true});await writeFile(path.join(dir,'pages',name),bytes);}
@@ -114,6 +114,20 @@ test('入口默认开发分支只核对，正式仍要求CI运行号；禁止任
  assert.equal(parseOptions(['--target','preview','--run','123']).execute,false);
  for(const args of [['--target','main','--run','123'],['--target','preview','--run','1','--branch','main'],['--target','preview','--run','1','--run','2'],['--target','production']])assert.throws(()=>parseOptions(args));
  assert.equal(parseOptions(['--target','production','--run','123','--approve-preview',packageHash,'--closeout','--execute']).execute,true);
+});
+
+test('接受Pages的站内HTML规范地址跳转并验证相同字节，拒绝外站或不对应的目标',async()=>{
+ const f=await fixture();let location='/privacy';
+ const fetchImpl=async url=>{const name=new URL(url).pathname.slice(1)||'index.html';
+  if(name==='privacy.html')return new Response(null,{status:308,headers:{Location:location}});
+  if(name==='api/status')return new Response(JSON.stringify({ready:true}));
+  if(name==='private-nonexistent-deployment-check')return new Response(null,{status:404});
+  return new Response(f.files.get(name==='privacy'?'privacy.html':name),{headers:{'content-security-policy':"frame-ancestors 'none'",'x-content-type-options':'nosniff','x-frame-options':'DENY'}});
+ };
+ try{
+  assert.deepEqual((await verifyOnline(environments.preview.origin,f.manifest,{fetchImpl})).canonicalRedirects,['privacy.html']);
+  for(location of ['https://evil.test/privacy','/other','/privacy?changed=true'])await assert.rejects(()=>verifyOnline(environments.preview.origin,f.manifest,{fetchImpl}),/非预期跳转/);
+ }finally{await cleanup(f.dir);}
 });
 
 test('无PR的日常开发入口不能上传正式版，也不接受伪造的收口或PR参数',async()=>{

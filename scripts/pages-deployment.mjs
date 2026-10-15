@@ -108,9 +108,16 @@ async function verifyPagesPackage(directory,manifest,receipt){
 
 export async function verifyOnline(origin,manifest,{fetchImpl=fetch}={}){
   const platform=new Set(['_headers','_worker.js','_routes.json']);
-  const checks=[];
+  const checks=[],canonicalRedirects=[];
   for(const file of manifest.files.filter(f=>!platform.has(f.path))){
-    const response=await fetchImpl(origin+'/'+(file.path==='index.html'?'':file.path),{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
+    const address=origin+'/'+(file.path==='index.html'?'':file.path);
+    let response=await fetchImpl(address,{redirect:'manual',cache:'no-store',signal:AbortSignal.timeout(30000)});
+    if(response.status===301||response.status===308){
+      const location=response.headers.get('location'),target=location?new URL(location,address):null;
+      requireThat(file.path.endsWith('.html')&&target?.href===origin+'/'+file.path.slice(0,-5),'在线候选出现非预期跳转：'+address);
+      canonicalRedirects.push(file.path);
+      response=await fetchImpl(target.href,{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
+    }
     const bytes=Buffer.from(await response.arrayBuffer());
     requireThat(response.status===200&&sha(bytes)===file.sha256,'在线候选不一致：'+origin+'/'+file.path);
     checks.push(file.path);
@@ -121,5 +128,5 @@ export async function verifyOnline(origin,manifest,{fetchImpl=fetch}={}){
   requireThat(missing.status===404,'在线未知路径未返回404');
   const status=await fetchImpl(origin+'/api/status',{redirect:'error',cache:'no-store',signal:AbortSignal.timeout(30000)});
   requireThat(status.status===200&&(await status.json()).ready===true,'在线账户空间尚未就绪');
-  return {origin,packageHash:manifest.packageHash,checkedAt:new Date().toISOString(),publicFiles:checks.length,pass:true};
+  return {origin,packageHash:manifest.packageHash,checkedAt:new Date().toISOString(),publicFiles:checks.length,canonicalRedirects,pass:true};
 }
