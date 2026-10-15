@@ -1,9 +1,9 @@
-# 发布状态 · 2026-10-15
+# 发布状态（2026-10-15）
 
-0.5.5换址候选在0.5.4基础上统一新正式／固定测试入口；0.5.4增加邮箱验证注册／重置、昵称头像及网站到采集器的自动登录连接。只更换公开名称与网址，沿用原账号、密码、收藏、媒体及后端服务。保留过渡期旧站连接，不清除扩展登录数据。真实邮件服务未配置；不宣称邮件送达。
+正式refellow.pages.dev和开发preview.refellow.pages.dev均部署0.5.5源码bff20eaae71febff3c73dde4affad598fd74a3b3，继续使用原有正式／开发数据库和认证配置；两站账户及资料隔离。
 
-继续 codex/collector-floating-edge 和既有产品PR #2。本轮获准开通新公网，仍未推送、合并或提交Edge商城。refellow 项目已创建；误建空库不接入，原数据库保留；实际部署、数据库与邮件验收以 project_status/current.md 和开通回执为准。候选身份以 local/acceptance/current/acceptance.json 为准。
+网站当前可访问，邮件未开通。恢复密钥注册／找回改动仅本地工作树，尚未部署，不能把本机功能当成线上已有功能。
 
-上一轮已在Cloudflare专用预览环境验证过账户和图片；这些证据不替代0.5.5验证。现有数据库兼容补齐缺失表并保留原AUTH_PEPPER，再完成邮件发送、真实Edge自动连接和采集上传验收。生产站、预览站和本机的代码／数据状态分别记录。
+当前继续codex/collector-floating-edge / PR #2，未合并main、未创建GitHub Release、未提交Edge审核。扩展候选及固定加载路径不变，真实Edge体验仍待验收。
 
-公开仓库ga626/refellow，MIT、免费；发布者ga626，支持18703937308@163.com。沿用既有Edge草稿；新Pages项目refellow承接原网站，原数据库和认证配置继续使用，旧入口验证完成前保留。后续只维护一个正式入口和一个固定测试入口。
+公开仓库ga626/refellow，MIT、免费；发布者ga626，支持18703937308@163.com。日常只提供两个新网址；旧lingganji尚留兼容，退役缺口见[当前状态](../project_status/current.md)。

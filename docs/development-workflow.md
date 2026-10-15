@@ -1,50 +1,48 @@
-# 开发、加载与发布
+# 开发、验收与发布
 
-## 一个仓库，三个运行位置
+## 一个仓库，两个网站
 
-仓库 ga626/refellow 同时维护 public/ 网站、cloud/ API、采集器/ 扩展和 scripts/ 构建脚本。网站必须有源码，但不需要单独建仓库。网站部署到 Cloudflare refellow 项目（正式 refellow.pages.dev、固定测试 preview.refellow.pages.dev），扩展提交 Edge，二者从同一提交构建，分别交付。
+ga626/refellow 同时维护 public/ 网站、cloud/ API、采集器/ 扩展和 scripts/ 工具。Cloudflare 仅使用 refellow 项目：
 
-2026-10-15 远端核对：仓库公开；main=314cd49，仅治理文件。PR #2（codex/collector-floating-edge）包含网站、API 和扩展，远端 HEAD=de025a6，未合并，无 GitHub Release。本地更新不能冒充远端已同步。
+- 开发版：https://preview.refellow.pages.dev/，部署分支 preview，独立测试账户和资料。
+- 正式版：https://refellow.pages.dev/，部署分支 main，正式账户和资料。
 
-## 每次开发
+127.0.0.1:5192 是本机调试工具，默认停止，不作为第三个日常验收网站。AI必要时用 start.cmd 启动，核对 /health 后用 scripts/stop-local.ps1 停止；保留本机数据。本地修改不会自动更新云端网站。
 
-1. 新任务从 main 建 codex/<topic>；已有未合并任务继续原分支。完成 PR、CI、合并后回 main，再开下个任务。
-2. 网站本地入口固定 http://127.0.0.1:5192/，修改后刷新；无须每次打包或更新公网。网站模拟页不能验证扩展 API。
-3. 扩展源码、版本号、说明和测试由 AI 准备，用户不直接加载源码目录。先把本轮源码提交到本地 Git，记录实际 SHA、仓库、目标 PR；此时仍未推送，不等于 PR 远端 HEAD 或 CI 已更新。
-4. AI 在干净提交上设置 REFELLOW_PR_NUMBER=2（当前任务）和 REFELLOW_REQUIRE_CANDIDATE=1，依次运行 node scripts/build-collector.mjs、node scripts/prepare-candidate.mjs、node scripts/stage-acceptance.mjs。PR 编号先通过远端查询核实，禁止凭空填写。
-5. AI 先做风险定向检查，再给用户版本、SHA、固定路径、检查项和已知缺口。用户验收与自动测试分开记录。
+## 每轮开发
 
-## Edge 加载
+1. 默认在既有分支继续修改；独立新任务再从main建codex/<topic>。当前为codex/collector-floating-edge，已有PR #2未合并；不切回治理基线main。
+2. AI修改、做受影响的定向检查并本地提交，无需逐次确认。共享源只改public/collector/，运行scripts/sync-collector.mjs同步；记录源码SHA及缺口。
+3. 运行npm run deploy:preview -- --execute，按当前分支干净提交构建并只更新preview，无需PR或推送GitHub。核对线上身份、账户服务及正式版未变，再让用户刷新开发网址；未部署成功时如实说明。
+4. 扩展有改动时，AI准备同一候选的固定加载包，给版本、SHA和下方目录；用户首次加载，以后重新加载。纯网站改动不用反复加载扩展。
+5. 仅用户明确说推送PR时，才推送、创建／更新PR、处理CI、合并、正式上线和回main验证。先由PR CI冻结正式候选并在开发版核对，正式只提升该同一制品；普通开发包不冒充PR候选。开发验收通过不自动授权收口，Edge上架另按明确授权。
 
-首次在 Edge 地址栏输入 edge://extensions，打开开发人员模式，点击“加载解压缩的扩展”，选择：
+两站目前相同，是换址时人工把同一未合并候选分别上传到preview和main；未发现自动同步链路。Cloudflare的main部署标签不等于GitHub代码已合并；以后不能靠手选该标签更新正式站。保留现有线上基线，不为制造视觉差异回滚网站或改动数据。
+
+日常开发包绑定本地提交与摘要，PR候选仍按prepare-candidate.mjs、stage-acceptance.mjs执行；部署使用[网站部署入口](pages-deployment.md)。仅本地实现的GitHub工作流不称云端已启用。当前状态见[当前状态](../project_status/current.md)。
+
+## Edge加载
+
+首次在 edge://extensions 开启开发人员模式，点击“加载解压缩的扩展”，选择文件夹：
 
 D:/Projects/Refellow/local/acceptance/current/edge-extension
 
-选择文件夹，不选 ZIP 或 manifest.json。旧 0.5.0 扩展先停用，避免两个悬浮入口；不卸载清除连接数据。加载后应显示 0.5.5。本地未打包扩展的 ID 可能变化；刷新参伴网站让扩展重新识别已有测试账户。
+选择文件夹，不选ZIP或manifest.json。当前0.5.5；目录不移动。避免同时启用旧版本，先停用并保留资料。
 
-以后 AI 更新同一目录后，用户先结束录制和待保存任务，再在 Edge 扩展页点击该扩展的“重新加载”，并刷新目标网页；不用重新选择目录。不要把右侧普通网页预览当成新版扩展已安装。
+以后AI更新current后，先结束录制和待保存任务，点击扩展“重新加载”，刷新目标网页。网站登录后工具自动识别账户，不需要连接码；正式与开发数据隔离。普通网页预览不能验证真实Edge采集。
 
-截图和录制自动保存到网站登录账户，不输入连接码。本机验收：运行 start.cmd；在扩展详情→扩展选项选择“本机开发网站”，首次允许回环访问，然后刷新5192网站并登录。新注册需先配置邮件服务；旧账户可用原用户名登录并绑定邮箱。测试站和正式站按所打开网站自动识别，数据分开，不搬运账户。详见 account-integration.md。
+## 保留与清理
 
-## 包的保留
+- local/build、local/candidate固定覆盖，不每轮增加部署目录。
+- local/acceptance只保留current、previous；核对身份及摘要后轮换，不动录制及待保存资料。
+- 历史包已归local/history，不作为当前加载地址；原回执不改写，迁移可查moves.json。
+- 已退役演示的node_modules和dist已清除，源码、lockfile和Git历史保留；迁移完整备份、本机账号与媒体保留。
+- Actions临时制品按保留期清理，Release仅放正式制品。
 
-- local/build/pages：日常网站构建覆盖，避免每次新增“部署/包-摘要”。明确归档时才调用 buildPages({archive:true})。
-- public/assets/collector.zip 与 local/candidate：构建和候选准备临时输出，固定位置覆盖。
-- local/acceptance/current：本次实际加载的不可变内容和验收回执；previous：上一版。下次确认候选完整后轮换，淘汰更旧的受管 previous；目录内容无法识别时拒绝覆盖。先校验 ZIP、源码身份和网站逐文件摘要，失败保留当前版本。
-- 验收目录中的 artifact/ 保留原 ZIP、网站包、schema；edge-extension/ 逐文件解包，acceptance.json 记录版本、源码 SHA、包 SHA 和文件摘要。
-- 旧 local/candidates 和 部署 中的历史包不自动扫删；先核对已加载路径和历史引用，迁出旧加载路径后再专项清理。新流程不继续往那里堆日常包。
-- GitHub Actions 当前制品保留30天；GitHub Release 仅保留正式发布制品，开发迭代不发 Release。
+## 必要验收
 
-## 验收之后
+网站：注册后生成恢复密钥、找回保留资料且撤销旧会话、两账户隔离、媒体保存读取。邮件未开通时不列作可用。
 
-有问题继续当前分支，修复后生成新 SHA 的候选；通过后再按已授权范围推送同一分支，更新 PR，CI 通过后合并并回 main。候选内容改变须重新验受影响项。正式站部署和 Edge 商城提交提升已验同一候选，核对公开内容与摘要；微软审核通过后才算商城上线。网站和扩展无需同步每次发版，只发布本次有变化的部分并核对兼容。
+扩展：黄页自动小球、其他站手动开启、截图框选与取消、静音区域及整页录制、手动停止、失败重试。首次采集仍需Edge当前页授权；截图可移动、八方向调整、Enter确认、Esc取消；导航结束录制。
 
-## 本次0.5.5验收范围
-
-自动小球和未收录网页的扩展菜单入口分别验收。首次采集仍需点击 Edge 的扩展操作授权当前标签页；自动内容脚本不授予 activeTab 或 tabCapture 权限。本版保留最小权限，不偷偷申请全站访问。
-
-截图：全网页可见区域框选、八方向调节、内部移动、尺寸提示、整页、Enter 确认、Esc 取消。录屏复用选区，静音；录制期间隐藏主菜单，停止控件放在选区外；整页或无空位时使用 Edge 工具栏 STOP 停止。停止后显示保存状态，失败保留录像供重试。页面导航会结束录制。
-
-网站不再嵌入可操作的小窗演示；单独打开全页交互演示仍不产生真实媒体。真实 Edge API、截图像素、录像播放、账户上传须在同一候选上独立验证，本地交互和自动测试不能代替。
-
-0.5.5账户验收：右上角头像／昵称，修改昵称；旧用户名登录→邮箱绑定；邮件验证码注册／重置；网站登录后扩展自动同步；退出、切换和失效不误存到其他账号。真实邮件送达、真实Edge宿主及公网部署分别验收。本地测试接收器和网页预览不能冒充真实邮件或扩展通过。
+自动测试、云端API、真实Edge、用户体验、商城审核分别记录，不互相替代。

@@ -47,7 +47,7 @@ export async function handleCloudRequest(request,env){
  async function ownedUpload(user,id){const row=await q('SELECT * FROM uploads WHERE id=? AND user_id=?',id,user).first();if(!row)fail('没有这份媒体。',404);return row;}
  const emailValue=value=>{const email=String(value||'').normalize('NFKC').trim().toLowerCase();if(email.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(email))fail('请输入有效的邮箱地址。');return email;};
  const displayValue=value=>{const name=String(value||'').normalize('NFKC').trim();if(name.length>24||/[\p{Cc}\p{Cf}]/u.test(name))fail('昵称最多24个字符，请勿使用控制字符。');return name;};
- async function profile(id,username){const p=await q('SELECT email,display_name FROM account_profiles WHERE user_id=?',id).first();return {username,displayName:p?.display_name||'参伴用户'+id.slice(-4),email:p?.email||null,emailVerified:!!p?.email,development};}
+ async function profile(id,username){const p=await q('SELECT email,display_name FROM account_profiles WHERE user_id=?',id).first(),account=await q('SELECT recovery_hash FROM users WHERE id=?',id).first();return {username,displayName:p?.display_name||'参伴用户'+id.slice(-4),email:p?.email||null,emailVerified:!!p?.email,recoveryReady:/^[a-f0-9]{64}$/.test(account?.recovery_hash||''),development};}
  async function consumeCode(email,purpose,code){
   const row=await q('SELECT * FROM email_codes WHERE email=? AND purpose=?',email,purpose).first();
   if(!row||!row.sent||row.expires<=now||row.attempts>=5)fail('验证码已失效，请重新获取。',400);
@@ -60,9 +60,9 @@ export async function handleCloudRequest(request,env){
   if(request.method==='OPTIONS')return extension?new Response(null,{status:204,headers}):json({error:'来源不受信任。'},403);
   const path=url.pathname.replace(/^\/api/,'');
   if(path==='/status'&&request.method==='GET')return json({ready:!!db&&typeof env.AUTH_PEPPER==='string'&&env.AUTH_PEPPER.length>=32,development,emailReady:mailReady(env)});
-  if(!/^\/(register|login|recover|logout|account|email\/(code|bind)|password\/reset|collector\/session|devices\/revoke|pair(?:\/redeem)?|workspace|uploads(?:\/[a-zA-Z0-9_-]+\/(?:\d+|complete))?|media\/[a-zA-Z0-9_-]+(?:\/\d+)?)$/.test(path))return json({error:'没有此接口。'},404);
+  if(!/^\/(register|login|recover|logout|account(?:\/recovery)?|email\/(code|bind)|password\/reset|collector\/session|devices\/revoke|pair(?:\/redeem)?|workspace|uploads(?:\/[a-zA-Z0-9_-]+\/(?:\d+|complete))?|media\/[a-zA-Z0-9_-]+(?:\/\d+)?)$/.test(path))return json({error:'没有此接口。'},404);
   if(!db||typeof env.AUTH_PEPPER!=='string'||env.AUTH_PEPPER.length<32)return json({error:'个人云空间尚未配置，暂不能登录或保存。'},503);
-  if(path==='/recover'||path.startsWith('/pair'))return json({error:'请在参伴网站登录；密码通过已验证邮箱重置。无需连接码或恢复码。'},410);
+  if(path.startsWith('/pair'))return json({error:'请在参伴网站登录，采集器会自动连接，无需连接码。'},410);
   if(path==='/email/code'){
    if(request.method!=='POST'||!website)fail('请从参伴网站操作。',403);
    if(!mailReady(env))fail('邮件服务尚未配置，暂不能发送验证码。已有账户仍可登录。',503);
@@ -75,21 +75,31 @@ export async function handleCloudRequest(request,env){
    try{await sendAccountMail(env,email,code,purpose);await q('UPDATE email_codes SET sent=1 WHERE email=? AND purpose=? AND digest=?',email,purpose,digest).run();}catch(e){await q('DELETE FROM email_codes WHERE email=? AND purpose=? AND digest=?',email,purpose,digest).run();throw e;}
    return json({ok:true,retryAfter:60});
   }
-  if(path==='/register'||path==='/login'||path==='/password/reset'){
+  if(path==='/register'||path==='/login'||path==='/password/reset'||path==='/recover'){
    if(request.method!=='POST'||!website)fail('请从参伴网站操作。',403);
    const body=await readJSON(),identifier=String(body.email||body.username||'').normalize('NFKC').trim().toLowerCase();
-   if(!identifier||identifier.length>254)fail('请输入邮箱；旧账户也可使用原用户名登录。');
+   if(!identifier||identifier.length>254||/[\p{Cc}\p{Cf}]/u.test(identifier))fail('请输入账号，可使用用户名、邮箱或手机号。');
    if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('密码需为12–128个字符，可使用密码短语，无需特殊符号。');
    await rate('auth-ip:'+request.headers.get('CF-Connecting-IP'));await rate('auth-user:'+identifier,12);
    const existing=await q('SELECT u.* FROM users u LEFT JOIN account_profiles p ON p.user_id=u.id WHERE u.username=? OR p.email=?',identifier,identifier).first();
    if(path==='/register'){
-    const email=emailValue(body.email),displayName=displayValue(body.displayName)||'参伴用户'+random(2);
-    if(existing)fail('此邮箱已有账户，请登录；旧账户请先登录再绑定邮箱。',409);
+    const keyRegistration=body.recoveryMethod==='key',email=keyRegistration?null:emailValue(body.email),username=keyRegistration?identifier:email,displayName=displayValue(body.displayName)||'参伴用户'+random(2);
+    if(keyRegistration&&!/^[\p{L}\p{N}_.@+-]{3,64}$/u.test(username)&&!/^\S+@[^\s@]+\.[^\s@]+$/.test(username))fail('账号需为3–64个中文、字母、数字或 . _ - @ +，也可以使用邮箱地址。');
+    if(existing)fail('此账号已存在，请登录或找回密码。',409);
     if((await q('SELECT COUNT(*) AS count FROM users').first()).count>=500)fail('首版免费空间的账户名额已满，请联系支持。',503);
-    await consumeCode(email,'register',body.code);
-    const id='user-'+crypto.randomUUID(),salt=random(16),derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
-    const created=await db.batch([q('INSERT INTO users SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<500',id,email,salt,derived,'disabled',now),q('INSERT INTO workspaces SELECT ?,?,0 WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,JSON.stringify(emptyState()),id),q('INSERT INTO account_profiles SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,email,displayName,id)]);if(created[0].meta.changes!==1)fail('免费空间账户名额已满。',503);
-    await retireBrowserSession();return json(await profile(id,email),201,{'Set-Cookie':cookie(await newSession(id,'website'))});
+    if(!keyRegistration)await consumeCode(email,'register',body.code);
+    const id='user-'+crypto.randomUUID(),salt=random(16),recovery=keyRegistration?random(16):null,derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
+    const created=await db.batch([q('INSERT INTO users SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<500',id,username,salt,derived,recovery?await hash(recovery+env.AUTH_PEPPER):'disabled',now),q('INSERT INTO workspaces SELECT ?,?,0 WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,JSON.stringify(emptyState()),id),q('INSERT INTO account_profiles SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,email,displayName,id)]);if(created[0].meta.changes!==1)fail('免费空间账户名额已满。',503);
+    await retireBrowserSession();return json({...await profile(id,username),...(recovery?{recoveryCode:recovery}:{})},201,{'Set-Cookie':cookie(await newSession(id,'website'))});
+   }
+   if(path==='/recover'){
+    const code=String(body.recoveryCode||'').replace(/[\s-]/g,'').toLowerCase(),digest=await hash(code+env.AUTH_PEPPER);
+    if(!/^[a-f0-9]{32}$/.test(code)||!existing||!constantEqual(digest,existing.recovery_hash))fail('账号或恢复密钥不正确。',401);
+    const salt=random(16),recovery=random(16),nextHash=await hash(recovery+env.AUTH_PEPPER),derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
+    // 条件更新与撤销在同一事务中：并发重放只能有一个请求成功。
+    const changed=await db.batch([q('UPDATE users SET salt=?,password_hash=?,recovery_hash=? WHERE id=? AND recovery_hash=? AND password_hash=?',salt,derived,nextHash,existing.id,digest,existing.password_hash),q('DELETE FROM sessions WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND recovery_hash=?)',existing.id,existing.id,nextHash),q('DELETE FROM pair_codes WHERE user_id=? AND EXISTS(SELECT 1 FROM users WHERE id=? AND recovery_hash=?)',existing.id,existing.id,nextHash),q('DELETE FROM email_codes WHERE email IN (SELECT email FROM account_profiles WHERE user_id=? UNION SELECT username FROM users WHERE id=?) AND EXISTS(SELECT 1 FROM users WHERE id=? AND recovery_hash=?)',existing.id,existing.id,existing.id,nextHash)]);
+    if(changed[0].meta.changes!==1)fail('恢复密钥已使用或账户已更新，请使用最新密钥。',409);
+    await retireBrowserSession();return json({...await profile(existing.id,existing.username),recoveryCode:recovery},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
    }
    if(path==='/password/reset'){
     const email=emailValue(body.email);await consumeCode(email,'reset',body.code);
@@ -97,7 +107,7 @@ export async function handleCloudRequest(request,env){
     const salt=random(16);await db.batch([q('UPDATE users SET salt=?,password_hash=?,recovery_hash=? WHERE id=?',salt,await passwordHash(body.password,salt,env.AUTH_PEPPER),'disabled',account.id),q('DELETE FROM sessions WHERE user_id=?',account.id),q('DELETE FROM pair_codes WHERE user_id=?',account.id)]);
     await retireBrowserSession();return json(await profile(account.id,account.username),200,{'Set-Cookie':cookie(await newSession(account.id,'website'))});
    }
-   const derived=await passwordHash(body.password,existing?.salt||'invalid-account-dummy-salt',env.AUTH_PEPPER);if(!existing||!constantEqual(derived,existing.password_hash))fail('邮箱或密码错误。旧账户也可使用原用户名登录。',401);
+   const derived=await passwordHash(body.password,existing?.salt||'invalid-account-dummy-salt',env.AUTH_PEPPER);if(!existing||!constantEqual(derived,existing.password_hash))fail('账号或密码错误。',401);
    await retireBrowserSession();return json(await profile(existing.id,existing.username),200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
   }
   const session=await authenticate(),user=session.user_id;
@@ -110,6 +120,16 @@ export async function handleCloudRequest(request,env){
   }
   if(path==='/logout'&&request.method==='POST'){await q('DELETE FROM sessions WHERE token_hash=?',await hash(session.raw)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
   if(path==='/account'&&request.method==='GET')return json(await profile(user,session.username));
+  if(path==='/account/recovery'&&request.method==='POST'){
+   if(!website||session.scope!=='website')fail('请在参伴网站管理恢复密钥。',403);
+   await rate('recovery-manage:'+user,5);const body=await readJSON();
+   if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('请输入当前密码。',401);
+   const account=await q('SELECT salt,password_hash,recovery_hash FROM users WHERE id=?',user).first();
+   if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('当前密码不正确。',401);
+   const recovery=random(16),result=await q('UPDATE users SET recovery_hash=? WHERE id=? AND password_hash=? AND recovery_hash=?',await hash(recovery+env.AUTH_PEPPER),user,account.password_hash,account.recovery_hash).run();
+   if(result.meta.changes!==1)fail('账户已更新，请刷新后重新操作。',409);
+   return json({recoveryCode:recovery});
+  }
   if(path==='/account'&&request.method==='PATCH'){
    if(!website||session.scope!=='website')fail('请在网站修改昵称。',403);const body=await readJSON(),name=displayValue(body.displayName);if(!name)fail('请填写昵称。');
    await q('INSERT INTO account_profiles(user_id,email,display_name) VALUES(?,NULL,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name',user,name).run();return json(await profile(user,session.username));

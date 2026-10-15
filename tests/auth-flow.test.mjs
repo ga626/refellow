@@ -84,7 +84,7 @@ test('验证码错误、用途隔离、一次性、频率和邮件失败均不�
   assert.equal((await f.env.DB.prepare('SELECT COUNT(*) AS count FROM email_codes').first()).count,0);
   f.env.MAIL_SEND=async()=>{throw Object.assign(Error('发送失败'),{status:502});};assert.equal((await f.raw('/email/code',post({email:'fail@example.com',purpose:'register'}))).status,502);
   assert.equal((await f.env.DB.prepare('SELECT COUNT(*) AS count FROM email_codes').first()).count,0);
-  assert.equal((await f.raw('/recover',post({}))).status,410);assert.equal((await f.raw('/pair',post({}))).status,410);
+  assert.equal((await f.raw('/recover',post({}))).status,400);assert.equal((await f.raw('/pair',post({}))).status,410);
  }finally{await f.close();}
 });
 test('五次错误后验证码失效，过期验证码拒绝，不能绕过验证注册',async()=>{
@@ -133,11 +133,16 @@ test('隔离脚本→真实账户API→后台存储：登录、切换、退出�
   await f.raw('/logout',post({}));const third=wait();document.dispatchEvent(new Event('refellow:account-changed'));await third;assert.equal(data['refellow/cloud-connection'],undefined);assert.equal(events.at(-1).connected,false);
  }finally{await f.close();}
 });
-test('实际Pages worker打包后保留邮件与自动连接接口，不残留模块导入',async()=>{
+test('实际Pages worker保留邮件、恢复密钥与自动连接的完整接口',async()=>{
  const f=await setup();try{
   const bytes=await buildCloudWorker(process.cwd()),worker=(await import('data:text/javascript;base64,'+bytes.toString('base64'))).default;
   const call=(route,options={})=>worker.fetch(new Request('https://refellow.test/api'+route,{...options,headers:{Origin:'https://refellow.test',...options.headers}}),f.env);
   const r=await registerVerified(call,f.env,{email:'bundle@example.test',password});assert.equal(r.status,201);const cookie=r.headers.get('Set-Cookie').split(';')[0];
   assert.equal((await call('/collector/session',{...post({extensionId:'a'.repeat(32)}),headers:{Cookie:cookie}})).status,200);
+  delete f.env.MAIL_SEND;
+  const registered=await call('/register',post({username:'bundled-key-account',password,recoveryMethod:'key'}));assert.equal(registered.status,201);const account=await body(registered),keyCookie=registered.headers.get('Set-Cookie').split(';')[0];
+  const replaced=await body(await call('/account/recovery',{...post({password}),headers:{Cookie:keyCookie}}));
+  const reset=await call('/recover',post({username:account.username,password:password+'new',recoveryCode:replaced.recoveryCode}));assert.equal(reset.status,200);assert.match((await body(reset)).recoveryCode,/^[a-f0-9]{32}$/);
+  assert.equal((await call('/account',{headers:{Cookie:keyCookie}})).status,401);
  }finally{await f.close();}
 });
