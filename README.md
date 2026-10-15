@@ -25,4 +25,4 @@ npm test 验证；npm run build:pages 生成白名单 Pages 包；node scripts/b
 
 网站由AI准备并核对开发版部署，用户刷新开发网址验收；扩展首次加载local/acceptance/current/edge-extension，之后重新加载并刷新目标页。AI准备版本、包和回执；current/previous只保留两版。[开发、加载与发布](docs/development-workflow.md)。
 
-两站线上为0.5.5源码bff20ea；上文恢复密钥方案为本地待上线修改。Edge草稿已建，尚未提交审核；PR #2未合并、未创建GitHub Release。参阅[发布状态](docs/release-status.md)和[申报材料](docs/edge-store/申报材料.md)。
+2026-10-16开发版已更新至21fe72e，支持无验证码注册及恢复密钥找回；正式版保持0.5.5源码bff20ea。线上账号／采集媒体接口链通过，真实Edge界面体验待用户验收。Edge草稿尚未提交审核；未推送本轮本地提交、未操作PR或创建GitHub Release。参阅[发布状态](docs/release-status.md)。

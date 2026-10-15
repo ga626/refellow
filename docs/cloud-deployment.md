@@ -1,6 +1,6 @@
 # 参伴云端部署与验收合同
 
-2026-10-15。正式refellow.pages.dev、开发preview.refellow.pages.dev均已部署0.5.5（bff20ea）；保留原后端。邮件未开通，临时恢复密钥修改仅本地，尚未部署。日常只有两个云端入口，5192仅内部按需调试。最新核对见project_status/current.md。
+2026-10-16。开发preview.refellow.pages.dev已部署21fe72e，支持恢复密钥注册／找回，真实API保存链通过；正式refellow.pages.dev仍为bff20ea，原后端及认证配置保留。邮件未开通，不阻断开发版注册。5192仅内部按需调试；最新身份与验收边界见project_status/current.md。
 
 ## 部署结构
 
