@@ -6,12 +6,14 @@ import {createHash} from 'node:crypto';
 import {downloadHeaders} from './scripts/pages-config.mjs';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const port=Number(process.env.PORT||5192);
-const cloudEnvironment=process.env.REFELLOW_LOCAL_CLOUD==='1'?await(await import('./scripts/local-cloud.mjs')).openLocalCloud(root):null;
+const cloudEnvironment=process.env.REFELLOW_LOCAL_CLOUD!=='0'?await(await import('./scripts/local-cloud.mjs')).openLocalCloud(root):null;
 const {handleCloudRequest}=await import('./cloud/api.js');
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.zip':'application/zip'};
-const files={'/cloud-space.js':'cloud-space.js','/privacy.html':'privacy.html','/privacy.css':'privacy.css','/':'index.html','/app.js':'app.js','/store.js':'store.js','/lib.js':'lib.js','/collector-ui.js':'collector-ui.js','/collector-transfer.js':'collector-transfer.js','/workspace-ui.js':'workspace-ui.js','/handoff.js':'handoff.js','/workspace.css':'workspace.css','/style.css':'style.css','/sites.json':'sites.json','/legacy-cases.json':'cases.json'};
+const files={'/account-ui.js':'account-ui.js','/cloud-space.js':'cloud-space.js','/privacy.html':'privacy.html','/privacy.css':'privacy.css','/':'index.html','/app.js':'app.js','/store.js':'store.js','/lib.js':'lib.js','/collector-ui.js':'collector-ui.js','/collector-transfer.js':'collector-transfer.js','/workspace-ui.js':'workspace-ui.js','/handoff.js':'handoff.js','/workspace.css':'workspace.css','/style.css':'style.css','/sites.json':'sites.json','/legacy-cases.json':'cases.json'};
 function json(res,status,value){const body=Buffer.from(JSON.stringify(value));res.writeHead(status,{'Content-Type':types['.json'],'Content-Length':body.length});res.end(res.req.method==='HEAD'?undefined:body);}
 http.createServer(async(req,res)=>{
+if(req.headers.host==='localhost:'+port&&['GET','HEAD'].includes(req.method)){res.writeHead(307,{Location:'http://127.0.0.1:'+port+req.url});return res.end();}
+if(req.headers.host!=='127.0.0.1:'+port)return json(res,403,{error:'请使用本机开发地址访问。'});
 res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Cache-Control','no-store');res.setHeader('Referrer-Policy','no-referrer');
 res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
 let url;try{url=new URL(req.url,'http://localhost');}catch{return json(res,400,{error:'无效地址'});}

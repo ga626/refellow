@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Refellow · 参伴 · 页面采集器",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "minimum_chrome_version": "116",
   "description": "框选或整屏截图、当前网页区域录制；采集结果保存到登录账户的个人网站空间。",
   "permissions": [
@@ -33,17 +33,46 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.siteinspire.com/*", "https://*.siteinspire.com/*", "https://onepagelove.com/*", "https://*.onepagelove.com/*",
-        "https://www.awwwards.com/*", "https://*.awwwards.com/*", "https://recent.design/*", "https://*.recent.design/*",
-        "https://land-book.com/*", "https://*.land-book.com/*", "https://lapa.ninja/*", "https://*.lapa.ninja/*",
-        "https://httpster.net/*", "https://*.httpster.net/*", "https://mobbin.com/*", "https://*.mobbin.com/*",
-        "https://refero.design/*", "https://*.refero.design/*", "https://saasframe.io/*", "https://*.saasframe.io/*",
-        "https://60fps.design/*", "https://*.60fps.design/*", "https://reactbits.dev/*", "https://*.reactbits.dev/*",
-        "https://threeui.com/*", "https://*.threeui.com/*", "https://21st.dev/*", "https://*.21st.dev/*",
-        "https://ui.shadcn.com/*", "https://*.ui.shadcn.com/*", "https://inspoai.io/*", "https://*.inspoai.io/*",
-        "https://fontsinuse.com/*", "https://*.fontsinuse.com/*", "https://typewolf.com/*", "https://*.typewolf.com/*"
+        "https://www.siteinspire.com/*",
+        "https://*.siteinspire.com/*",
+        "https://onepagelove.com/*",
+        "https://*.onepagelove.com/*",
+        "https://www.awwwards.com/*",
+        "https://*.awwwards.com/*",
+        "https://recent.design/*",
+        "https://*.recent.design/*",
+        "https://land-book.com/*",
+        "https://*.land-book.com/*",
+        "https://lapa.ninja/*",
+        "https://*.lapa.ninja/*",
+        "https://httpster.net/*",
+        "https://*.httpster.net/*",
+        "https://mobbin.com/*",
+        "https://*.mobbin.com/*",
+        "https://refero.design/*",
+        "https://*.refero.design/*",
+        "https://saasframe.io/*",
+        "https://*.saasframe.io/*",
+        "https://60fps.design/*",
+        "https://*.60fps.design/*",
+        "https://reactbits.dev/*",
+        "https://*.reactbits.dev/*",
+        "https://threeui.com/*",
+        "https://*.threeui.com/*",
+        "https://21st.dev/*",
+        "https://*.21st.dev/*",
+        "https://ui.shadcn.com/*",
+        "https://*.ui.shadcn.com/*",
+        "https://inspoai.io/*",
+        "https://*.inspoai.io/*",
+        "https://fontsinuse.com/*",
+        "https://*.fontsinuse.com/*",
+        "https://typewolf.com/*",
+        "https://*.typewolf.com/*"
       ],
-      "js": ["floating.js"],
+      "js": [
+        "floating.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -53,5 +82,8 @@
   "host_permissions": [
     "https://lingganji.pages.dev/*",
     "https://*.lingganji.pages.dev/*"
+  ],
+  "optional_host_permissions": [
+    "http://127.0.0.1/*"
   ]
 }

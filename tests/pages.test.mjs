@@ -11,7 +11,7 @@ test('静态入口不依赖本机API，保留旧版迁移和完整备份',()=>{
 test('发布包只含允许文件，不含资料、配置、测试或用户数据',()=>{
   assert.equal(packageData.siteCount,18);
   const allowed=/^(?:index\.html|404\.html|app\.js|store\.js|lib\.js|collector-ui\.js|collector-transfer\.js|workspace-ui\.js|workspace\.css|handoff\.js|collector\/(?:sidepanel\.(?:html|css|js)|core\.js|browser\.js|catalog\.json|popup\.html|capture\.(?:js|css)|desk\.js|inbox\.js|recorder\.(?:html|js)|lib\.js|(?:shared\/)?(?:attachments|media-store|recipes|zip|screen-recorder)\.js)|style\.css|sites\.json|legacy-cases\.json|release\.json|_headers|assets\/[a-z0-9-]+\.(?:png|jpg|webp|zip))$/;
-  for(const name of packageData.files.keys())assert.ok(allowed.test(name)||["privacy.html","privacy.css","source-identity.json","cloud-space.js","collector/capture-region.js","collector/cloud-media.js","_worker.js","_routes.json"].includes(name)||/^collector\/icons\/icon-(16|32|48|128)\.png$/.test(name)||/^collector\/(floating-preview\.(html|js|css)|shared\/floating-ui\.js)$/.test(name),'不允许的发布文件：'+name);
+  for(const name of packageData.files.keys())assert.ok(allowed.test(name)||["privacy.html","privacy.css","source-identity.json","cloud-space.js","account-ui.js","collector/capture-region.js","collector/cloud-media.js","_worker.js","_routes.json"].includes(name)||/^collector\/icons\/icon-(16|32|48|128)\.png$/.test(name)||/^collector\/(floating-preview\.(html|js|css)|shared\/floating-ui\.js)$/.test(name),'不允许的发布文件：'+name);
   assert.ok(!packageData.files.has('server.mjs'));assert.ok(!packageData.files.has('实现验收回执.json'));
 });
 test('实拍图扩展名符合JPEG签名，迁移只含公开最低必要数据',()=>{

@@ -22,7 +22,7 @@ export async function preparePagesFiles(root=projectRoot) {
     files.set(output,bytes);source.push({path:'public/'+input,sha256:hash(bytes),bytes:bytes.length});
   }
   for(const name of ['index.html','app.js','style.css','lib.js','store.js','collector-ui.js','collector-transfer.js','workspace-ui.js','workspace.css','handoff.js','collector/attachments.js','collector/media-store.js','collector/recipes.js','collector/zip.js','collector/screen-recorder.js']) await include(name);
-  for(const name of ['privacy.html','privacy.css','cloud-space.js','collector/capture-region.js','collector/cloud-media.js']) await include(name);
+  for(const name of ['privacy.html','privacy.css','account-ui.js','cloud-space.js','collector/capture-region.js','collector/cloud-media.js']) await include(name);
   files.set('_worker.js',await buildCloudWorker(root));
   files.set('_routes.json',utf8(JSON.stringify({version:1,include:['/api/*'],exclude:[]})+'\n'));
   for(const name of ['cloud/api.js','cloud/schema.sql','scripts/build-cloud.mjs']){const bytes=await readFile(path.join(root,name));if(containsSensitive(bytes))throw Error('云端源码含敏感内容：'+name);source.push({path:name,sha256:hash(bytes),bytes:bytes.length});}

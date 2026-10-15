@@ -7,7 +7,6 @@ const MAX_WORKSPACE=1024*1024;
 const mediaKey=(id,position)=>'media/'+id+'/'+position;
 const hash=async value=>hex(await crypto.subtle.digest('SHA-256',typeof value==='string'?text.encode(value):value));
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
-const cookie=token=>'refellow_session='+token+'; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=2592000';
 async function passwordHash(password,salt,pepper){
  const key=await crypto.subtle.importKey('raw',text.encode(password+pepper),'PBKDF2',false,['deriveBits']);
  return hex(await crypto.subtle.deriveBits({name:'PBKDF2',salt:text.encode(salt),iterations:100000,hash:'SHA-256'},key,256));
@@ -15,6 +14,8 @@ async function passwordHash(password,salt,pepper){
 function constantEqual(a,b){let difference=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)difference|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return difference===0;}
 export async function handleCloudRequest(request,env){
  const url=new URL(request.url),origin=request.headers.get('Origin'),website=origin===url.origin,extension=!!origin&&/^chrome-extension:\/\/[a-p]{32}$/.test(origin);
+ const development=env.LOCAL_DEVELOPMENT===true&&url.origin==='http://127.0.0.1:5192';
+ const cookie=(token,maxAge=2592000)=>'refellow_session='+token+'; HttpOnly;'+(development?'':' Secure;')+' SameSite=Strict; Path=/api; Max-Age='+maxAge;
  const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer'};
  if(extension)Object.assign(headers,{'Access-Control-Allow-Origin':origin,'Vary':'Origin','Access-Control-Allow-Headers':'Authorization, Content-Type, If-Match','Access-Control-Allow-Methods':'GET, POST, PUT, DELETE, OPTIONS'});
  const json=(body,status=200,extra={})=>new Response(JSON.stringify(body),{status,headers:{...headers,...extra}});
@@ -45,26 +46,28 @@ export async function handleCloudRequest(request,env){
  try{
   if(request.method==='OPTIONS')return extension?new Response(null,{status:204,headers}):json({error:'来源不受信任。'},403);
   const path=url.pathname.replace(/^\/api/,'');
+  if(path==='/status'&&request.method==='GET')return json({ready:!!db&&typeof env.AUTH_PEPPER==='string'&&env.AUTH_PEPPER.length>=32,development});
   if(!/^\/(register|login|recover|logout|account|devices\/revoke|pair(?:\/redeem)?|workspace|uploads(?:\/[a-zA-Z0-9_-]+\/(?:\d+|complete))?|media\/[a-zA-Z0-9_-]+(?:\/\d+)?)$/.test(path))return json({error:'没有此接口。'},404);
   if(!db||typeof env.AUTH_PEPPER!=='string'||env.AUTH_PEPPER.length<32)return json({error:'个人云空间尚未配置，暂不能登录或保存。'},503);
   if(path==='/register'||path==='/login'||path==='/recover'){
    if(request.method!=='POST'||!website)fail('请从参伴网站操作。',403);
-   const body=await readJSON(),username=String(body.username||'').normalize('NFKC').toLowerCase();
-   if(!/^[\p{L}\p{N}_-]{3,32}$/u.test(username)||typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('用户名3至32个字母、数字或下划线；密码至少12位。');
+   const body=await readJSON(),username=String(body.username||'').normalize('NFKC').trim().toLowerCase();
+   if(!/^[\p{L}\p{N}_.@-]{3,64}$/u.test(username))fail('用户名需为3–64个字符，可使用中文、字母、数字及 . _ - @。');
+   if(typeof body.password!=='string'||body.password.length<12||body.password.length>128)fail('密码需为12–128个字符，可使用密码短语，无需特殊符号。');
    await rate('auth-ip:'+request.headers.get('CF-Connecting-IP'));await rate('auth-user:'+username,12);
    const existing=await q('SELECT * FROM users WHERE username=?',username).first();
    if(path==='/register'){
     if(existing)fail('此用户名已存在。',409);if((await q('SELECT COUNT(*) AS count FROM users').first()).count>=500)fail('首版免费空间的账户名额已满，请联系支持。',503);const id='user-'+crypto.randomUUID(),salt=random(16),recovery=random(16),derived=await passwordHash(body.password,salt,env.AUTH_PEPPER);
     const created=await db.batch([q('INSERT INTO users SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM users)<500',id,username,salt,derived,await hash(recovery+env.AUTH_PEPPER),now),q('INSERT INTO workspaces SELECT ?,?,0 WHERE EXISTS(SELECT 1 FROM users WHERE id=?)',id,JSON.stringify(emptyState()),id)]);if(created[0].meta.changes!==1)fail('首版免费空间的账户名额已满，请联系支持。',503);
-    const token=await newSession(id,'website');return json({username,recoveryCode:recovery},201,{'Set-Cookie':cookie(token)});
+    const token=await newSession(id,'website');return json({username,development,recoveryCode:recovery},201,{'Set-Cookie':cookie(token)});
    }
    if(path==='/recover'){
-    if(!existing||!constantEqual(existing.recovery_hash,await hash(String(body.recoveryCode||'')+env.AUTH_PEPPER)))fail('用户名或恢复码错误。',401);
+    if(!existing||!constantEqual(existing.recovery_hash,await hash(String(body.recoveryCode||'').trim().toLowerCase()+env.AUTH_PEPPER)))fail('用户名或恢复码错误。',401);
     const salt=random(16),recovery=random(16);await db.batch([q('UPDATE users SET salt=?,password_hash=?,recovery_hash=? WHERE id=?',salt,await passwordHash(body.password,salt,env.AUTH_PEPPER),await hash(recovery+env.AUTH_PEPPER),existing.id),q('DELETE FROM sessions WHERE user_id=?',existing.id)]);
-    return json({username,recoveryCode:recovery},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
+    return json({username,development,recoveryCode:recovery},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
    }
    const derived=await passwordHash(body.password,existing?.salt||'invalid-account-dummy-salt',env.AUTH_PEPPER);if(!existing||!constantEqual(derived,existing.password_hash))fail('用户名或密码错误。',401);
-   return json({username},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
+   return json({username,development},200,{'Set-Cookie':cookie(await newSession(existing.id,'website'))});
   }
   if(path==='/pair/redeem'){
    if(request.method!=='POST'||origin&&!extension)fail('请在采集器连接页输入连接码。',403);await rate('pair:'+request.headers.get('CF-Connecting-IP'));
@@ -74,10 +77,10 @@ export async function handleCloudRequest(request,env){
    const user=await q('SELECT username FROM users WHERE id=?',row.user_id).first();return json({token:await newSession(row.user_id,'capture'),username:user.username});
   }
   const session=await authenticate(),user=session.user_id;
-  if(path==='/logout'&&request.method==='POST'){await q('DELETE FROM sessions WHERE token_hash=?',await hash(session.raw)).run();return json({ok:true},200,{'Set-Cookie':'refellow_session=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});}
+  if(path==='/logout'&&request.method==='POST'){await q('DELETE FROM sessions WHERE token_hash=?',await hash(session.raw)).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
   if(path==='/account'&&request.method==='GET')return json({username:session.username,development:env.LOCAL_DEVELOPMENT===true});
   if(path==='/devices/revoke'&&request.method==='POST'){if(session.scope!=='website')fail('请在网站管理设备。',403);await q("DELETE FROM sessions WHERE user_id=? AND scope='capture'",user).run();await q('DELETE FROM pair_codes WHERE user_id=?',user).run();return json({ok:true});}
-  if(path==='/account'&&request.method==='DELETE'){if(session.scope!=='website')fail('请在网站删除账户。',403);const body=await readJSON();if(typeof body.password!=='string'||body.password.length>128)fail('密码错误。',401);const account=await q('SELECT salt,password_hash FROM users WHERE id=?',user).first();if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('密码错误。',401);if(env.MEDIA){const objects=(await q('SELECT c.storage_key FROM chunk_meta c JOIN uploads u ON u.id=c.upload_id WHERE u.user_id=?',user).all()).results;for(const object of objects)await env.MEDIA.delete(object.storage_key);}await q('DELETE FROM users WHERE id=?',user).run();return json({ok:true},200,{'Set-Cookie':'refellow_session=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});}
+  if(path==='/account'&&request.method==='DELETE'){if(session.scope!=='website')fail('请在网站删除账户。',403);const body=await readJSON();if(typeof body.password!=='string'||body.password.length>128)fail('密码错误。',401);const account=await q('SELECT salt,password_hash FROM users WHERE id=?',user).first();if(!constantEqual(await passwordHash(body.password,account.salt,env.AUTH_PEPPER),account.password_hash))fail('密码错误。',401);if(env.MEDIA){const objects=(await q('SELECT c.storage_key FROM chunk_meta c JOIN uploads u ON u.id=c.upload_id WHERE u.user_id=?',user).all()).results;for(const object of objects)await env.MEDIA.delete(object.storage_key);}await q('DELETE FROM users WHERE id=?',user).run();return json({ok:true},200,{'Set-Cookie':cookie('',0)});}
   if(path==='/pair'&&request.method==='POST'){
    if(session.scope!=='website')fail('请在网站连接采集器。',403);await rate('pair-user:'+user,8);const code=random(8);await db.batch([q('DELETE FROM pair_codes WHERE user_id=?',user),q('INSERT INTO pair_codes VALUES(?,?,?)',await hash(code),user,now+5*60*1000)]);return json({code:code.match(/.{4}/g).join('-')});
   }

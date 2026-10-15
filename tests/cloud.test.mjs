@@ -63,7 +63,7 @@ test('密码恢复撤销旧登录、设备撤销、删除账户级联，跨源�
   r=await call('/logout',{method:'POST',headers:{Cookie:cookie,Origin:'https://attacker.test'}});assert.equal(r.status,403);
   r=await call('/devices/revoke',{method:'POST',headers:{Cookie:cookie}});assert.equal(r.status,200);
   r=await call('/account',{headers:{Authorization:'Bearer '+token}});assert.equal(r.status,401);
-  r=await call('/recover',{method:'POST',body:JSON.stringify({username:'recovery-test',password:password+'new',recoveryCode:registered.recoveryCode})});assert.equal(r.status,200);const newCookie=r.headers.get('Set-Cookie').split(';')[0];
+  r=await call('/recover',{method:'POST',body:JSON.stringify({username:'recovery-test',password:password+'new',recoveryCode:' '+registered.recoveryCode.toUpperCase()+' '})});assert.equal(r.status,200);const newCookie=r.headers.get('Set-Cookie').split(';')[0];
   r=await call('/account',{headers:{Cookie:cookie}});assert.equal(r.status,401);
   r=await call('/login',{method:'POST',body:JSON.stringify({username:'recovery-test',password})});assert.equal(r.status,401);
   r=await call('/account',{method:'DELETE',headers:{Cookie:newCookie},body:JSON.stringify({password:password+'new'})});assert.equal(r.status,200);

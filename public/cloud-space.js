@@ -1,3 +1,4 @@
+import {mountAuthForm} from './account-ui.js';
 import {emptyState,normalizeWorkspace} from './store.js';
 import {setMediaBackend} from './collector/media-store.js';
 import {uploadCloudMedia,readCloudMedia} from './collector/cloud-media.js';
@@ -9,7 +10,7 @@ function assertGeneration(expected){if(expected!==generation)throw Error('账户
 export async function cloudAPI(path,{method='GET',body,headers={}}={}){
  const expected=generation;
  if(user&&!['/login','/register','/recover'].includes(path))headers={...headers,'X-Refellow-Account':user.username};
- const response=await fetch('/api'+path,{method,credentials:'same-origin',headers,body,signal:AbortSignal.timeout(30000)});
+ let response;try{response=await fetch('/api'+path,{method,credentials:'same-origin',headers,body,signal:AbortSignal.timeout(30000)});}catch(e){throw Error(e.name==='TimeoutError'?'连接超时，请重试；输入内容仍然保留。':'无法连接账户服务，请检查网络后重试。');}
  assertGeneration(expected);
  if(!response.ok){let message;try{message=(await response.json()).error;}catch{}throw Object.assign(Error(message||'网站暂时无法保存（HTTP '+response.status+'）。'),{status:response.status});}return response;
 }
@@ -29,23 +30,43 @@ export async function initializeCloudSpace(options){
  try{user=await(await cloudAPI('/account')).json();await loadState();callbacks.onAuth?.(user);callbacks.onStatus?.(savedMessage);}
  catch(e){user=null;callbacks.onState?.(emptyState());callbacks.onAuth?.(null);callbacks.onStatus?.(e.status===401?'登录后保存到个人空间':e.message);}
  setInterval(async()=>{if(!user||pending||failed||document.hidden||document.querySelector('dialog[open]')||/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName||''))return;const expected=generation;try{const data=await(await cloudAPI('/workspace')).json();if(expected!==generation||pending||mediaPending||failed)return;if(data.revision!==revision){revision=data.revision;callbacks.onState?.(normalizeWorkspace(data.state));}}catch(e){if(expected===generation)callbacks.onStatus?.(e.message);}},5000);
- const accountButton=document.querySelector('#cloud-account');accountButton?.addEventListener('click',showAccount);document.querySelector('#cloud-retry')?.addEventListener('click',retrySave);if(location.hash==='#account')showAccount();addEventListener('hashchange',()=>{if(location.hash==='#account')showAccount();});
+ const accountButton=document.querySelector('#cloud-account');accountButton?.addEventListener('click',showAccount);document.querySelector('#mobile-account')?.addEventListener('click',showAccount);document.querySelector('#cloud-retry')?.addEventListener('click',retrySave);if(location.hash==='#account')showAccount();addEventListener('hashchange',()=>{if(location.hash==='#account')showAccount();});
 }
-export function showAccount(){
- const dialog=document.querySelector('#form-dialog'),content=document.querySelector('#form-content');content.replaceChildren();
- const heading=document.createElement('h2');heading.id='form-title';heading.textContent=user?'你的个人空间':'登录参伴';content.append(heading);
+function clearAccount(message){
+ generation++;callbacks.onAccountChange?.();user=null;revision=0;chain=Promise.resolve();failed=false;lastSnapshot=null;callbacks.onState?.(emptyState());callbacks.onAuth?.(null);callbacks.onStatus?.(message);
+}
+export function showAccount(options={}){
+ const dialog=document.querySelector('#form-dialog'),content=document.querySelector('#form-content');if(dialog.open&&dialog.classList.contains('account-dialog')&&!options.replace)return;
+ dialog.classList.remove('wide-dialog');dialog.classList.add('account-dialog');content.replaceChildren();
+ dialog.addEventListener('close',()=>dialog.classList.remove('account-dialog'),{once:true});
+ const header=document.createElement('div');header.className='account-brand';header.innerHTML='<span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>参伴 <small>Refellow</small></span>';
+ const close=document.createElement('button');close.type='button';close.className='icon-button';close.setAttribute('aria-label','关闭账户窗口');close.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';close.onclick=()=>dialog.close();header.append(close);content.append(header);
+ const heading=document.createElement('h2');heading.id='form-title';heading.textContent=user?'你的个人空间':'欢迎回到参伴';content.append(heading);
+ const description=document.createElement('p');description.className='account-description';content.append(description);
+ const environment=document.createElement('p');environment.className='account-environment';content.append(environment);
  if(user){
-  const description=document.createElement('p');description.textContent='已登录 '+user.username+'。截图和录像仅保存在你的账户中。';content.append(description);
-  const pair=document.createElement('button');pair.className='button primary';pair.textContent='连接采集器';content.append(pair);
-  const status=document.createElement('p');status.setAttribute('role','status');content.append(status);pair.onclick=async()=>{pair.disabled=true;try{const result=await(await cloudAPI('/pair',{method:'POST'})).json();status.textContent='连接码：'+result.code+'（5分钟有效，只能使用一次）。在采集器“连接账户”页粘贴。';}catch(e){status.textContent=e.message;}finally{pair.disabled=false;}};
-  const revoke=document.createElement('button');revoke.className='button secondary';revoke.textContent='断开所有采集器';content.append(revoke);revoke.onclick=async()=>{revoke.disabled=true;try{await cloudAPI('/devices/revoke',{method:'POST'});status.textContent='采集器已全部断开。需要时重新生成连接码。';}catch(e){status.textContent=e.message;}finally{revoke.disabled=false;}};
-  const logout=document.createElement('button');logout.className='button secondary';logout.textContent='退出登录';content.append(logout);logout.onclick=async()=>{if(pending||mediaPending||failed){status.textContent='还有未保存修改，请先完成保存或导出备份。';return;}try{await cloudAPI('/logout',{method:'POST'});generation++;callbacks.onAccountChange?.();user=null;revision=0;chain=Promise.resolve();failed=false;lastSnapshot=null;callbacks.onState?.(emptyState());callbacks.onAuth?.(null);callbacks.onStatus?.('登录后保存到个人空间');dialog.close();}catch(e){status.textContent=e.message;}};
-  const deletion=document.createElement('details');deletion.innerHTML='<summary>删除账户与云端收藏</summary><p>永久删除你的账户、项目和全部云端媒体。先导出需要保留的备份。</p><label>输入密码确认<input type="password" autocomplete="current-password" maxlength="128"></label><button class="button secondary" type="button">永久删除我的账户</button>';content.append(deletion);
-  deletion.querySelector('button').onclick=async()=>{if(pending||mediaPending||failed){status.textContent='请先处理未保存修改。';return;}const b=deletion.querySelector('button');b.disabled=true;try{await cloudAPI('/account',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:deletion.querySelector('input').value})});generation++;callbacks.onAccountChange?.();user=null;revision=0;chain=Promise.resolve();lastSnapshot=null;callbacks.onState?.(emptyState());callbacks.onAuth?.(null);callbacks.onStatus?.('账户已删除');dialog.close();}catch(e){status.textContent=e.message;b.disabled=false;}};
- }else{
-  const form=document.createElement('form');form.className='form-grid';form.innerHTML='<label>操作<select name="mode"><option value="login">登录</option><option value="register">创建免费账户</option><option value="recover">用恢复码找回账户</option></select></label><label>用户名<input name="username" required autocomplete="username" minlength="3" maxlength="32"></label><label>密码<input name="password" type="password" required minlength="12" maxlength="128" autocomplete="current-password"></label><label class="recovery-field" hidden>恢复码<input name="recoveryCode" autocomplete="off"></label><p class="form-error" role="status"></p><button class="button primary" type="submit">继续</button>';content.append(form);
-  form.elements.mode.onchange=()=>{form.querySelector('.recovery-field').hidden=form.elements.mode.value!=='recover';form.elements.password.autocomplete=form.elements.mode.value==='login'?'current-password':'new-password';};
-  form.addEventListener('submit',async e=>{e.preventDefault();e.stopImmediatePropagation();const button=form.querySelector('button'),error=form.querySelector('.form-error');button.disabled=true;try{const fields=new FormData(form),mode=fields.get('mode');const result=await(await cloudAPI('/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:fields.get('username'),password:fields.get('password'),recoveryCode:fields.get('recoveryCode')})})).json();form.reset();generation++;callbacks.onAccountChange?.();revision=0;lastSnapshot=null;failed=false;chain=Promise.resolve();user={username:result.username};await loadState();callbacks.onAuth?.(user);callbacks.onStatus?.(savedMessage);if(result.recoveryCode){content.replaceChildren(heading);const p=document.createElement('p');p.textContent='请妥善保存恢复码，忘记密码时可用它找回账户。它只显示这一次：';content.append(p);const code=document.createElement('code');code.textContent=result.recoveryCode;content.append(code);const done=document.createElement('button');done.className='button primary';done.textContent='已保存恢复码';done.onclick=()=>dialog.close();content.append(done);}else dialog.close();}catch(err){error.textContent=err.message;}finally{button.disabled=false;}});
- }
- const close=document.createElement('button');close.className='button secondary';close.textContent='关闭';close.onclick=()=>dialog.close();content.append(close);if(!dialog.open)dialog.showModal();
+  description.textContent='已登录 '+user.username+'。采集的截图和录像会出现在“我的收藏”。';environment.textContent=user.development?'本机测试空间 · 仅保存在这台电脑，与线上空间分开。':'';environment.hidden=!user.development;
+  const connection=document.createElement('section');connection.className='account-connection';connection.innerHTML='<h3>连接页面采集器</h3><p>首次连接一次，之后截图和录像直接保存到这个账户。</p><button type="button" class="button primary">生成一次性连接码</button><div class="account-pair-result" hidden><label>连接码<input readonly aria-label="采集器连接码"></label><button type="button" class="button secondary">复制连接码</button><p>5分钟有效，仅可使用一次。在采集器“连接账户”页粘贴。</p></div><label class="account-address">当前网站地址<input readonly aria-label="采集器网站地址"></label>';content.append(connection);
+  connection.querySelector('.account-address input').value=location.origin;
+  const status=document.createElement('p');status.className='account-status';status.setAttribute('role','status');content.append(status);
+  const pair=connection.querySelector('.primary'),result=connection.querySelector('.account-pair-result'),code=result.querySelector('input');pair.onclick=async()=>{pair.disabled=true;pair.textContent='正在生成…';try{const data=await(await cloudAPI('/pair',{method:'POST'})).json();code.value=data.code;result.hidden=false;status.textContent='连接码已生成。';pair.textContent='重新生成连接码';}catch(e){status.textContent=e.message;pair.textContent='重新生成连接码';}finally{pair.disabled=false;}};
+  result.querySelector('button').onclick=async()=>{try{await navigator.clipboard.writeText(code.value);status.textContent='已复制，在采集器连接页粘贴即可。';}catch{code.select();status.textContent='请按 Ctrl+C 复制连接码。';}};
+  const actions=document.createElement('div');actions.className='account-actions';actions.innerHTML='<button type="button" class="button secondary" data-revoke>断开所有采集器</button><button type="button" class="button secondary" data-logout>退出登录</button>';content.append(actions);
+  actions.querySelector('[data-revoke]').onclick=async e=>{e.target.disabled=true;try{await cloudAPI('/devices/revoke',{method:'POST'});status.textContent='采集器已全部断开。需要时重新生成连接码。';}catch(err){status.textContent=err.message;}finally{e.target.disabled=false;}};
+  actions.querySelector('[data-logout]').onclick=async e=>{if(pending||mediaPending||failed){status.textContent='还有未保存修改，请先完成保存或导出备份。';return;}e.target.disabled=true;try{await cloudAPI('/logout',{method:'POST'});clearAccount('登录后保存到个人空间');dialog.close();}catch(err){status.textContent=err.message;e.target.disabled=false;}};
+  const deletion=document.createElement('details');deletion.className='account-danger';deletion.innerHTML='<summary>删除账户</summary><p>永久删除账户、项目和全部媒体，无法撤销。请先导出备份。</p><label>输入密码确认<input type="password" autocomplete="current-password" maxlength="128"></label><button class="button secondary" type="button">永久删除我的账户</button>';content.append(deletion);
+  deletion.querySelector('button').onclick=async e=>{if(pending||mediaPending||failed){status.textContent='请先处理未保存修改。';return;}e.target.disabled=true;try{await cloudAPI('/account',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:deletion.querySelector('input').value})});clearAccount('账户已删除');dialog.close();}catch(err){status.textContent=err.message;e.target.disabled=false;}};
+ }else mountAuthForm(content,{api:cloudAPI,heading,description,environment,close,async onAuthenticated(result){
+  generation++;callbacks.onAccountChange?.();revision=0;lastSnapshot=null;failed=false;chain=Promise.resolve();user={username:result.username,development:result.development===true};
+  try{await loadState();callbacks.onAuth?.(user);callbacks.onStatus?.(savedMessage);return '';}
+  catch(e){callbacks.onAuth?.(user);callbacks.onError?.('收藏尚未加载，请刷新重试；暂不能保存修改。');callbacks.onStatus?.('已登录，空间尚未加载；请刷新重试。');return '已登录，但收藏暂未加载。保存恢复码后刷新页面重试。';}
+ },onComplete(result,warning){
+  if(!result.recoveryCode&&!warning){dialog.close();return;}
+  // 恢复码只存在当前界面，不写日志或浏览器存储。
+  content.replaceChildren(header,heading);heading.textContent=result.recoveryCode?'账户已准备好':'登录成功';
+  const info=document.createElement('p');info.className='account-description';info.textContent=warning||'你已自动登录。接下来可连接采集器，开始保存参考。';content.append(info);
+  if(result.recoveryCode){const box=document.createElement('section');box.className='account-recovery';box.innerHTML='<h3>请保存账户恢复码</h3><p>忘记密码时用它找回账户，只显示这一次。请勿分享给他人。</p><input readonly aria-label="账户恢复码"><button type="button" class="button secondary">复制恢复码</button><p role="status"></p>';box.querySelector('input').value=result.recoveryCode;box.querySelector('button').onclick=async()=>{try{await navigator.clipboard.writeText(result.recoveryCode);box.querySelector('[role=status]').textContent='已复制，请妥善保存。';}catch{box.querySelector('input').select();box.querySelector('[role=status]').textContent='请按 Ctrl+C 复制。';}};content.append(box);}
+  const done=document.createElement('button');done.className='button primary auth-submit';done.textContent=warning?'保存后刷新重试':'已保存，连接采集器';done.onclick=()=>{if(warning){dialog.close();location.reload();}else showAccount({replace:true});};content.append(done);
+ }});
+ if(!dialog.open)dialog.showModal();
 }
