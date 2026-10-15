@@ -5,7 +5,7 @@ import os from 'node:os';import path from 'node:path';
 import {openLocalCloud} from '../scripts/local-cloud.mjs';
 import {handleCloudRequest} from '../cloud/api.js';
 import {credentialError} from '../public/account-ui.js';
-import {captureOrigin,LOCAL_ORIGIN} from '../采集器/cloud-connection.js';
+import {captureOrigin,LOCAL_ORIGIN,CLOUD_ORIGIN,PREVIEW_ORIGIN,ACCOUNT_MATCHES} from '../采集器/cloud-connection.js';
 import {synchronizeAccount} from '../采集器/account-session.js';
 import {uploadCloudMedia,readCloudMedia} from '../public/collector/cloud-media.js';
 import {registerVerified} from './helpers/email-account.mjs';
@@ -32,7 +32,29 @@ test('邮箱注册校验、密码确认和验证码；旧用户名仅保留登�
 });
 test('开发连接只接受固定回环和受信正式／预览地址',()=>{
  assert.equal(captureOrigin(LOCAL_ORIGIN),LOCAL_ORIGIN);
+ assert.equal(CLOUD_ORIGIN,'https://refellow.pages.dev');assert.equal(PREVIEW_ORIGIN,'https://preview.refellow.pages.dev');
+ for(const origin of [CLOUD_ORIGIN,PREVIEW_ORIGIN,'https://lingganji.pages.dev','https://refellow-qa-de025a6c.lingganji.pages.dev'])assert.equal(captureOrigin(origin),origin);
+ for(const origin of ['https://refellow.pages.dev.evil.test','https://other.pages.dev','https://other.refellow.pages.dev','http://refellow.pages.dev','https://refellow.pages.dev:8443','https://refellow.pages.dev/?token=x','https://user@refellow.pages.dev','https://preview.refellow.pages.dev/path'])assert.throws(()=>captureOrigin(origin));
+ assert.deepEqual(ACCOUNT_MATCHES,['https://refellow.pages.dev/*','https://preview.refellow.pages.dev/*','https://lingganji.pages.dev/*','https://*.lingganji.pages.dev/*']);
  for(const origin of ['http://localhost:5192','http://127.0.0.1:5193','http://127.0.0.1.evil.test:5192','http://192.168.1.1:5192','http://127.0.0.1:5192/?token=x','http://user@127.0.0.1:5192','https://evil.test'])assert.throws(()=>captureOrigin(origin));
+});
+test('换址兼容新旧受信站点的自动同步，仿冒域名不发出会话请求',async()=>{
+ const script=await readFile(new URL('../采集器/account-bridge.js',import.meta.url),'utf8');
+ for(const origin of [CLOUD_ORIGIN,PREVIEW_ORIGIN,'https://lingganji.pages.dev','https://other.refellow.pages.dev','https://refellow.pages.dev.evil.test']){
+  const allowed=[CLOUD_ORIGIN,PREVIEW_ORIGIN,'https://lingganji.pages.dev'].includes(origin),calls=[],document=new EventTarget();document.hasFocus=()=>true;document.hidden=false;
+  let done;const finished=new Promise(resolve=>done=resolve);document.addEventListener('refellow:collector-status',()=>done());
+  runInNewContext(script,{location:{origin},document,chrome:{runtime:{id:'a'.repeat(32),sendMessage:async message=>{calls.push(message);return {ok:true};}}},fetch:async(route,options)=>{calls.push({route,options});return new Response('{}',{status:401});},AbortSignal,CustomEvent,Event,setInterval:()=>0,addEventListener:()=>{}});
+  if(allowed){await finished;assert.equal(calls[0].route,'/api/collector/session');assert.equal(calls[0].options.credentials,'same-origin');assert.equal(calls[1].origin,origin);assert.equal(calls[1].account,null);}else assert.equal(calls.length,0);
+ }
+});
+test('扩展换址更新不清除原连接、待保存媒体或其他设置',async()=>{
+ const script=(await readFile(new URL('../采集器/service-worker.js',import.meta.url),'utf8')).replace(/^import .*;\r?$/gm,'');
+ const data={'refellow/cloud-connection':{origin:'https://lingganji.pages.dev',token:'a'.repeat(64),username:'existing'},pending:{id:'existing-media'},theme:'blue'},before=structuredClone(data),injected=[];
+ let installed;
+ const event={addListener:()=>{}};
+ const api={runtime:{onInstalled:{addListener:f=>installed=f},onMessage:event},permissions:{onAdded:event},action:{onClicked:event},tabs:{onRemoved:event,onUpdated:event,query:async options=>{assert.deepEqual([...options.url],ACCOUNT_MATCHES);return [{id:1}];}},scripting:{executeScript:async options=>injected.push(options)},storage:{local:{get:async()=>data,set:async value=>Object.assign(data,value),remove:async key=>delete data[key],clear:async()=>Object.keys(data).forEach(key=>delete data[key])}}};
+ runInNewContext(script,{chrome:api,ACCOUNT_MATCHES,enableLocalBridge:async()=>{},clearExpiredShots:async()=>{},Promise});
+ await installed();assert.deepEqual(data,before);assert.deepEqual([...injected[0].files],['account-bridge.js']);
 });
 test('邮箱注册→自动采集会话→媒体保存→重开持久库；退出同步撤销采集身份',async()=>{
  const f=await setup();try{
@@ -91,7 +113,7 @@ test('自动连接只接受本扩展受信网站顶层消息，后台另一环�
  await synchronizeAccount(api,message,sender);assert.equal(data['refellow/cloud-connection'].displayName,'小参');
  await assert.rejects(synchronizeAccount(api,message,{...sender,frameId:1}));await assert.rejects(synchronizeAccount(api,message,{...sender,url:'https://evil.test'}));await assert.rejects(synchronizeAccount(api,message,{...sender,id:'b'.repeat(32)}));
  await synchronizeAccount(api,{...message,account:null},sender);assert.equal(data['refellow/cloud-connection'],undefined);
- data['refellow/cloud-connection']={origin:'https://lingganji.pages.dev',token:'b'.repeat(64),username:'two'};await synchronizeAccount(api,{...message,focused:false},sender);assert.equal(data['refellow/cloud-connection'].username,'two');
+ data['refellow/cloud-connection']={origin:CLOUD_ORIGIN,token:'b'.repeat(64),username:'two'};await synchronizeAccount(api,{...message,focused:false},sender);assert.equal(data['refellow/cloud-connection'].username,'two');
 });
 test('无发件服务时不伪造发送成功，已有账号登录可用；未配置云端不透露秘密',async()=>{
  const f=await setup();try{assert.equal((await body(await f.raw('/status'))).emailReady,false);assert.equal((await f.raw('/email/code',post({email:'a@example.com',purpose:'register'}))).status,503);}finally{await f.close();}

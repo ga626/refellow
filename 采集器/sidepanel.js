@@ -2,7 +2,7 @@ import {captureRecord,cleanURL,suggestCategories,normalizeContext,saveToInbox,ex
 import {readCurrentPage,captureCurrentPage} from './browser.js';
 const $=id=>document.getElementById(id),e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const extension=!!globalThis.chrome?.runtime?.id&&!!chrome.storage?.local;
-function homeURL(){return context?.workbenchURL||'https://lingganji.pages.dev/';}
+function homeURL(){return context?.workbenchURL||'https://refellow.pages.dev/';}
 function bindHome(){if(extension){$('home').href=homeURL();$('home').title=context?.workbenchURL?'返回配置中的工作台':'尚未导入工作台配置，将打开旧公网版；新采集包请回本地新版导入';}}
 const INBOX='inspiration-collector/inbox-v1',CONTEXT='inspiration-collector/context-v1';
 let inbox=[],context=null,page=null,screenshot='',undo=null,readOnly=false,busy=false;

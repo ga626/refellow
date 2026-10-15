@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Refellow · 参伴 · 页面采集器",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "minimum_chrome_version": "116",
-  "options_ui": {"page":"connect.html","open_in_tab":true},
+  "options_ui": {
+    "page": "connect.html",
+    "open_in_tab": true
+  },
   "description": "框选或整屏截图、当前网页区域录制；采集结果保存到登录账户的个人网站空间。",
   "permissions": [
     "activeTab",
@@ -78,6 +81,8 @@
     },
     {
       "matches": [
+        "https://refellow.pages.dev/*",
+        "https://preview.refellow.pages.dev/*",
         "https://lingganji.pages.dev/*",
         "https://*.lingganji.pages.dev/*"
       ],
@@ -91,6 +96,8 @@
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "host_permissions": [
+    "https://refellow.pages.dev/*",
+    "https://preview.refellow.pages.dev/*",
     "https://lingganji.pages.dev/*",
     "https://*.lingganji.pages.dev/*"
   ],

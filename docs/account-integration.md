@@ -1,6 +1,6 @@
-# 账号与采集器：0.5.4 本地候选
+# 账号与采集器：0.5.5 换址候选
 
-目标是“网站登录一次，采集器直接保存”。这次只准备本地代码和候选，不代表公网部署或 Edge 商城更新。
+目标是“网站登录一次，采集器直接保存”。新正式入口 https://refellow.pages.dev，固定测试入口 https://preview.refellow.pages.dev；开通进度见 project_status/current.md，网址写入源码不代表已部署或商城已更新。
 
 ## 用户流程
 
@@ -15,7 +15,7 @@
 
 比较两条路线：一是扩展申请 cookies 权限并读取网站会话；二是仅在受信参伴站点注入 isolated content script，在站内通过 HttpOnly Cookie 换取采集权限。采用第二条，保留现有权限范围，不申请 cookies 或全站访问。
 
-account-bridge.js 只运行在 lingganji.pages.dev、其预览子域和明确授权的127.0.0.1:5192。凭据通过扩展内部消息发往 service worker，不放进 DOM、window 消息、URL或 localStorage。页面通知事件仅触发重新查询，不携带令牌。后台检查扩展ID、顶层 frame、实际 tab URL和来源；后台另一个环境不能覆盖当前选择的空间。
+account-bridge.js 运行在 refellow.pages.dev、preview.refellow.pages.dev，换址过渡期兼容旧 lingganji.pages.dev 及其预览子域，以及明确授权的127.0.0.1:5192。已有扩展连接不清除，不把旧令牌改写成新域名后发送。凭据通过扩展内部消息发往 service worker，不放进 DOM、window 消息、URL或 localStorage。页面通知事件仅触发重新查询，不携带令牌。后台检查扩展ID、顶层 frame、实际 tab URL和来源；后台另一个环境不能覆盖当前选择的空间。
 
 capture_sessions 将采集 token 绑定到网站父会话；服务端每次请求校验父会话仍有效。退出、删除账号和密码重置立即使关联 token 失效。切换账户保留媒体归属检查，旧账户待上传媒体不能改发到新账户。受限采集身份不能管理工作台或读取个人媒体。
 
@@ -31,11 +31,11 @@ capture_sessions 将采集 token 绑定到网站父会话；服务端每次请�
 | BREVO_API_KEY | Secret | Brevo API密钥，与RESEND_API_KEY二选一 |
 | RESEND_API_KEY | Secret | Resend API密钥，与BREVO_API_KEY二选一 |
 
-Cloudflare：现有 lingganji Pages → Settings → Variables and secrets，按环境分别设置。不要把密钥写进仓库、前端或对话。本机相应读取 REFELLOW_MAIL_FROM、REFELLOW_BREVO_API_KEY、REFELLOW_RESEND_API_KEY，设置后用受管脚本重启。未配置时，已有账户仍可登录；注册／重置会明确显示邮件尚未开通，绝不伪报验证码已发送。
+Cloudflare：新的 refellow Pages → Settings → Variables and secrets，按环境分别设置。不要把密钥写进仓库、前端或对话。本机相应读取 REFELLOW_MAIL_FROM、REFELLOW_BREVO_API_KEY、REFELLOW_RESEND_API_KEY，设置后用受管脚本重启。未配置时，已有账户仍可登录；注册／重置会明确显示邮件尚未开通，绝不伪报验证码已发送。
 
-Brevo 官方价格页当前提供免费方案，每日300封，发件能力须经账号批准并验证发件人。具体发件人／域名是否获批必须在实际后台验证，不能保证仅凭现有163邮箱就能发件。Resend免费额度每日100封、每月3000封，但要求拥有并验证发件域名，pages.dev不是可自行验证的发件域名。当前尚未新建邮件服务账号、接受条款、设置新Secret或发送真实邮件。注册第三方账号、条款和邮箱验证需要账号持有人完成相应步骤，随后可继续配置与验证。
+Brevo 官方价格页当前提供免费方案，每日300封，发件能力须经账号批准并验证发件人。具体发件人／域名是否获批必须在实际后台验证，不能保证仅凭现有163邮箱就能发件。Resend免费额度每日100封、每月3000封，但要求拥有并验证发件域名，pages.dev不是可自行验证的发件域名。Brevo账号已注册，个人资料、发件人验证与服务端Secret尚待完成，尚未验证真实邮件送达。注册第三方账号、条款和邮箱验证需要账号持有人完成相应步骤，随后可继续配置与验证。
 
-云端部署前先执行 cloud/migrations/0003-email-and-auto-session.sql；只新增表，不删除或重命名旧表。与账号升级配套部署网站／worker和扩展，旧版连接码接口返回410，避免继续使用已废弃流程。回滚应先恢复上一个完整候选；新增表可保留，不回滚用户数据。
+新网址继续连接原有正式／测试数据库，保留对应 AUTH_PEPPER。现有库按 cloud/migrations 补齐缺失表，禁止清库、重建账号或随意轮换密码秘密。换网址后需重新登录原账号，不需重新注册。浏览器本地存储不随网址移动，旧版仅存在本机的资料须单独核对并迁移。与账号升级配套部署网站／worker和扩展，旧版连接码接口返回410，避免继续使用已废弃流程。回滚应先恢复上一个完整候选；新增表可保留，不回滚用户数据。
 
 ## 验证与证据边界
 

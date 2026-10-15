@@ -5,7 +5,7 @@ import {getMedia} from './shared/media-store.js';
 import {saveBlob} from './shared/zip.js';
 const $=s=>document.querySelector(s),status=t=>$('#status').textContent=t;
 let items=[],context=null,undo=null,urls=[];
-const home=()=>context?.workbenchURL||'https://lingganji.pages.dev/#collection';
+const home=()=>context?.workbenchURL||'https://refellow.pages.dev/#collection';
 function switchPane(tab){for(const name of ['capture','inbox','directory']){$('#'+name+'-pane').hidden=name!==tab;document.querySelector('[data-tab='+name+']').setAttribute('aria-pressed',name===tab);}if(tab==='inbox')refresh().catch(err=>status(err.message));}
 async function refresh(){items=await readStorage(INBOX,[]);if(!Array.isArray(items))throw Error('收件箱格式有误；未覆盖原记录。');$('#count').textContent=items.length;urls.forEach(URL.revokeObjectURL);urls=[];
   $('#inbox').innerHTML=items.length?items.map(r=>'<article class="inbox-row"><h2>'+e(r.title||r.name||new URL(r.url).hostname)+'</h2><a href="'+e(r.url)+'" target="_blank" rel="noopener noreferrer">打开原页面</a><p class="hint">'+e(r.url)+'</p>'+ (r.screenshot?'<img src="'+e(r.screenshot)+'" alt="旧采集截图">':'')+(r.attachments||[]).filter(a=>a.mediaId).map(a=>'<div data-media="'+e(a.mediaId)+'" data-kind="'+e(a.kind)+'"></div>').join('')+'<p class="hint">'+(r.attachments?.length||0)+' 个附件 · 回工作台整理</p><button data-remove="'+e(r.id)+'" class="quiet">移出收件箱</button></article>').join(''):'<p class="hint">还没有收藏。先去看网站，再点扩展图标采集。</p>';

@@ -1,10 +1,10 @@
 # 参伴云端部署与验收合同
 
-2026-10-12。0.5候选，免费优先，当前0.5.4本地候选改为邮箱验证码注册＋密码登录。当前生产网站尚未更新；本地 QA 不是已交付云端。
+2026-10-15。0.5.5换址候选，免费优先，邮箱验证码注册＋密码登录。当前生产网站尚未更新；本地 QA 不是已交付云端。
 
 ## 部署结构
 
-沿用 Cloudflare Pages 项目 lingganji。网站原生模块调用同源 /api；Pages 高级模式 _worker.js 由源码确定性生成，_routes.json 只把 /api/* 送往后端。其余白名单静态文件由 Pages 服务。D1 使用专用数据库，按 user_id 校验全部访问；不从其他项目数据库取资料。
+Cloudflare Pages 项目 refellow 独立部署：正式 refellow.pages.dev、固定测试 preview.refellow.pages.dev（preview 分支）；分别继续使用现有 refellow-production、refellow-preview 数据库及各自原有 AUTH_PEPPER，保留账号和资料。旧入口在新网址验证前保留。误建的 refellow-main、refellow-test 不接入，不迁入用户资料。当前是否已部署以 project_status/current.md 和部署回执为准。网站原生模块调用同源 /api；Pages 高级模式 _worker.js 由源码确定性生成，_routes.json 只把 /api/* 送往后端。其余白名单静态文件由 Pages 服务。D1 使用专用数据库，按 user_id 校验全部访问；不从其他项目数据库取资料。
 
 生产和预览分别绑定专用数据库 DB，并设置不同的 AUTH_PEPPER（至少32字符随机秘密，仅服务端）。首版不绑定 R2，媒体继续按512KiB分块保存在 D1；以后用户明确同意产生费用后，才可为对应环境新增 MEDIA R2 绑定并执行迁移。秘密不进入 Git、前端、候选、URL或日志；不要读取旧账号配置或备份密钥。数据库权限绑定须取得明确确认。候选验收只使用预览数据库，不能混入生产用户数据。
 
@@ -20,7 +20,7 @@ schema.sql 是初始建表合同；首次预览库为空，无已有用户迁移
 
 ## 账户与媒体
 
-密码使用 WebCrypto PBKDF2-SHA256、随机salt与服务端pepper，100000迭代。邮箱验证码哈希存储、一次性消费、10分钟有效、最多5次错误；发送有间隔和每日额度保护。重置密码撤销全部旧会话。旧账户登录后可验证绑定邮箱，不自动信任旧用户名的邮箱形式。支持密码确认删除账户。真实邮件需配置MAIL_FROM和BREVO_API_KEY或RESEND_API_KEY，先执行0003迁移，见account-integration.md。生产安全与免费CPU可用性仍须在真正Cloudflare候选中检查，Node本地测试不能替代。
+密码使用 WebCrypto PBKDF2-SHA256、随机salt与服务端pepper，100000迭代。邮箱验证码哈希存储、一次性消费、10分钟有效、最多5次错误；发送有间隔和每日额度保护。重置密码撤销全部旧会话。旧账户登录后可验证绑定邮箱，不自动信任旧用户名的邮箱形式。支持密码确认删除账户。真实邮件需配置MAIL_FROM和BREVO_API_KEY或RESEND_API_KEY，现有库按缺失表执行兼容增量迁移，保留已有数据和登录秘密，见account-integration.md。生产安全与免费CPU可用性仍须在真正Cloudflare候选中检查，Node本地测试不能替代。
 
 媒体上传使用稳定ID重试，完成后重复提交不添加重复收藏。截图等待框选时使用扩展临时缓冲，账号变更后拒绝保存旧截图；录像绑定开始时的账号。旧origin内的localStorage和IndexedDB不自动迁移，通过用户导出／确认导入进入账户。文字修改失败保留在本页面，暂停进一步写入，提供重试和备份；不得把排队保存当成服务端已保存。
 

@@ -1,7 +1,7 @@
 // 仅运行在参伴站点的 isolated world；凭据不经 window/DOM 传递。
 (()=>{
  if(globalThis.__refellowAccountBridge)return;globalThis.__refellowAccountBridge=true;
- if(location.origin!=='http://127.0.0.1:5192'&&location.origin!=='https://lingganji.pages.dev'&&!/^https:\/\/[a-z0-9-]+\.lingganji\.pages\.dev$/.test(location.origin))return;
+ if(!['http://127.0.0.1:5192','https://refellow.pages.dev','https://preview.refellow.pages.dev','https://lingganji.pages.dev'].includes(location.origin)&&!/^https:\/\/[a-z0-9-]+\.lingganji\.pages\.dev$/.test(location.origin))return;
  let running=false,again=false;
  async function sync(){
   if(running){again=true;return;}running=true;
