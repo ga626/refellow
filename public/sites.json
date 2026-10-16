@@ -1,0 +1,447 @@
+{
+  "schema": "inspiration-directory/v2",
+  "updatedAt": "2026-10-10",
+  "categories": [
+    {
+      "id": "whole",
+      "name": "整页风格",
+      "description": "看背景、排版、留白、图片与区块节奏如何组成完整网站。",
+      "examples": "完整首页、品牌气质、页面节奏"
+    },
+    {
+      "id": "flows",
+      "name": "产品与流程",
+      "description": "看注册、搜索、购买、设置等目标如何跨屏完成，包含异常和反馈。",
+      "examples": "任务路径、多屏关系、信息架构"
+    },
+    {
+      "id": "motion",
+      "name": "动效与交互",
+      "description": "看操作如何触发运动、状态如何反馈；真实节奏要到原站观察。",
+      "examples": "过渡、微交互、滚动与反馈"
+    },
+    {
+      "id": "immersive",
+      "name": "3D 与沉浸",
+      "description": "看场景、摄像机和空间如何与网页内容协作，不只是旋转物体。",
+      "examples": "WebGL、空间叙事、交互场景"
+    },
+    {
+      "id": "graphics",
+      "name": "图形与特殊风格",
+      "description": "看插画、手绘、纸艺、材质和品牌图形怎样贯穿界面。",
+      "examples": "整套视觉语言、图形与材质"
+    },
+    {
+      "id": "type-color",
+      "name": "排版与配色",
+      "description": "看字体搭配、文字层级、颜色职责和阅读对比。",
+      "examples": "真实字体使用、配色与层级"
+    },
+    {
+      "id": "buildable",
+      "name": "模板与组件",
+      "description": "看能复用的页面结构和交互组件；采用代码前另查许可。",
+      "examples": "模板、组件与实现入口"
+    }
+  ],
+  "sites": [
+    {
+      "id": "source-siteinspire",
+      "name": "Siteinspire",
+      "url": "https://www.siteinspire.com/",
+      "categories": [
+        "whole"
+      ],
+      "type": "网站画廊",
+      "tagline": "从完整页面找到自己的视觉方向。",
+      "description": "精选网站按风格、类型、题材与平台组织。适合看排版、空间、图片和区块节奏怎样组成一套语言。",
+      "bestFor": "品牌官网、作品集、完整布局",
+      "caveat": "不提供整站素材复制许可；具体作品仍去原站查看。",
+      "access": "公开浏览，部分收藏需登录",
+      "embedStatus": "blocked",
+      "embedNote": "官网明确禁止嵌入（DENY / frame-ancestors none）。",
+      "image": "/assets/siteinspire.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E21",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-one-page-love",
+      "name": "One Page Love",
+      "url": "https://onepagelove.com/",
+      "categories": [
+        "whole",
+        "buildable"
+      ],
+      "type": "网站画廊",
+      "tagline": "一个页面，也能讲完整的故事。",
+      "description": "把单页网站、区块与模板放在一起看。适合寻找首页开场、内容顺序、行动按钮和落地页节奏。",
+      "bestFor": "宣传页、个人站、单页区块组合",
+      "caveat": "模板权益与具体作品的素材许可分别核验。",
+      "access": "公开浏览，模板权益另查",
+      "embedStatus": "unknown",
+      "embedNote": "尚未保证全部子页能嵌入。",
+      "image": "/assets/one-page-love.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E22",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-awwwards",
+      "name": "Awwwards",
+      "url": "https://www.awwwards.com/",
+      "categories": [
+        "whole",
+        "motion",
+        "immersive"
+      ],
+      "type": "网站画廊",
+      "tagline": "看艺术指导与交互能走到哪里。",
+      "description": "网站奖项、提名与主题集合。适合观察叙事、沉浸体验和整体美术表达，不把奖项当所有产品的唯一标准。",
+      "bestFor": "高表现官网、叙事、沉浸体验",
+      "caveat": "获奖不等于低成本、快加载或适合高频工具。",
+      "access": "公开浏览，其他服务另查",
+      "embedStatus": "unknown",
+      "embedNote": "未逐项核验嵌入。",
+      "image": "/assets/awwwards.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E09",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-godly",
+      "name": "Recent · 原 Godly",
+      "url": "https://recent.design/",
+      "categories": [
+        "whole",
+        "graphics",
+        "type-color"
+      ],
+      "type": "设计发现",
+      "tagline": "不止网站，发现更宽的设计语言。",
+      "description": "Godly 入口本次重定向到 Recent。当前可浏览网站、界面、品牌、图形与排版等设计内容。",
+      "bestFor": "跨领域视觉、品牌与图形发现",
+      "caveat": "这是2026-10-10的跳转观察，不能沿用旧Godly功能承诺。",
+      "access": "公开浏览，权益采用时核验",
+      "embedStatus": "unknown",
+      "embedNote": "本次主文档未见禁止头，不代表全部内容可嵌入。",
+      "image": "/assets/godly.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E05",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-land-book",
+      "name": "Landbook",
+      "url": "https://land-book.com/",
+      "categories": [
+        "whole"
+      ],
+      "type": "网站画廊",
+      "tagline": "商业页面的构图与气质。",
+      "description": "以网站截图浏览品牌、电商、着陆页等设计。适合比较首页布局、视觉比例与图片使用。",
+      "bestFor": "商业首页、电商、品牌布局",
+      "caveat": "部分功能有登录或Pro；本次静态抓取403但浏览器能看。",
+      "access": "公开浏览，部分Pro",
+      "embedStatus": "blocked",
+      "embedNote": "官网限制为同源嵌入。",
+      "image": "/assets/land-book.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E06",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-lapa",
+      "name": "Lapa Ninja",
+      "url": "https://www.lapa.ninja/",
+      "categories": [
+        "whole",
+        "type-color",
+        "buildable"
+      ],
+      "type": "网站画廊",
+      "tagline": "把落地页按用途拆开来找。",
+      "description": "落地页与行业分类，也包含区块、字体、动效和模板入口。适合从具体页面类型缩小范围。",
+      "bestFor": "行业落地页、区块、字体与模板",
+      "caveat": "有公开/Pro入口，网站广告和加载状态会影响体验。",
+      "access": "公开浏览，部分Pro",
+      "embedStatus": "unknown",
+      "embedNote": "浏览器已显示，全部子页嵌入未验。",
+      "image": "/assets/lapa.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E07",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-httpster",
+      "name": "Httpster",
+      "url": "https://httpster.net/",
+      "categories": [
+        "whole",
+        "type-color"
+      ],
+      "type": "网站画廊",
+      "tagline": "从风格与题材两条线找网站。",
+      "description": "把网格、排版、色彩、插画、滚动等风格与行业题材分开。适合寻找不一样的页面组织。",
+      "bestFor": "网格、排版、非标准布局",
+      "caveat": "部分预览懒加载；图片不是可复制源码。",
+      "access": "公开浏览",
+      "embedStatus": "unknown",
+      "embedNote": "尚未保证全部子页能嵌入。",
+      "image": "/assets/httpster.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E08",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-mobbin",
+      "name": "Mobbin",
+      "url": "https://mobbin.com/",
+      "categories": [
+        "flows",
+        "motion"
+      ],
+      "type": "产品参考",
+      "tagline": "好看之外，看产品怎么真的被使用。",
+      "description": "已上线移动和网页产品的屏幕、流程与交互参考。适合研究注册、搜索、支付、设置与状态反馈。",
+      "bestFor": "产品屏幕、用户任务、多屏流程",
+      "caveat": "部分内容与检索有账号和权益限制。",
+      "access": "部分公开，完整库权益另查",
+      "embedStatus": "blocked",
+      "embedNote": "主页响应头SAMEORIGIN。",
+      "image": "/assets/mobbin.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E24",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-refero",
+      "name": "Refero",
+      "url": "https://refero.design/",
+      "categories": [
+        "flows",
+        "whole"
+      ],
+      "type": "产品参考",
+      "tagline": "给产品决策找具体上下文。",
+      "description": "网页和应用参考按页面、流程、UX模式与UI元素组织。适合SaaS和产品信息结构研究。",
+      "bestFor": "SaaS界面、页面类型、UX模式",
+      "caveat": "部分功能受权益限制；本站不连接其账号服务。",
+      "access": "部分公开，完整库权益另查",
+      "embedStatus": "unknown",
+      "embedNote": "未保证登录与所有子页嵌入。",
+      "image": "/assets/refero.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E25",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-saasframe",
+      "name": "SaaSFrame",
+      "url": "https://www.saasframe.io/",
+      "categories": [
+        "flows",
+        "whole"
+      ],
+      "type": "产品参考",
+      "tagline": "专门看 SaaS 的页面与旅程。",
+      "description": "收集SaaS网站、产品界面和邮件参考，提供页面、模式、流程与响应式方向。",
+      "bestFor": "SaaS营销页、产品流程、邮件",
+      "caveat": "Figma下载和具体参考权限采用时单独核验。",
+      "access": "公开介绍，库权益另查",
+      "embedStatus": "blocked",
+      "embedNote": "主页SAMEORIGIN / frame-ancestors self。",
+      "image": "/assets/saasframe.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E10",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-60fps",
+      "name": "60fps",
+      "url": "https://60fps.design/",
+      "categories": [
+        "motion",
+        "flows"
+      ],
+      "type": "动效库",
+      "tagline": "把精巧的交互慢慢看清楚。",
+      "description": "真实应用中的转场、反馈和微交互集合。适合观察时机、节奏、中断与状态变化。",
+      "bestFor": "微交互、导航、动效节奏",
+      "caveat": "静态封面不能展示真实动态；完整效果请在原站播放。",
+      "access": "部分公开，其他权益另查",
+      "embedStatus": "unknown",
+      "embedNote": "本次主文档无禁止头，实际子页另验。",
+      "image": "/assets/60fps.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E26",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-react-bits",
+      "name": "React Bits",
+      "url": "https://www.reactbits.dev/",
+      "categories": [
+        "motion",
+        "buildable"
+      ],
+      "type": "组件资源",
+      "tagline": "看到效果，也能研究具体实现。",
+      "description": "React动画组件、文字效果、背景与交互的可预览目录。适合选中一个效果，再决定如何用于项目。",
+      "bestFor": "交互背景、文字动画、微交互",
+      "caveat": "免费目录与Pro分开；本站不安装或执行其代码。",
+      "access": "公开目录，另有Pro",
+      "embedStatus": "unknown",
+      "embedNote": "本次主文档无禁止头，可按需试载。",
+      "image": "/assets/react-bits.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E23",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-threeui",
+      "name": "ThreeUI",
+      "url": "https://threeui.com/",
+      "categories": [
+        "immersive",
+        "motion",
+        "buildable"
+      ],
+      "type": "组件资源",
+      "tagline": "把三维空间带进页面。",
+      "description": "Three.js组件、完整模板、WebGL背景和着色器目录。适合研究场景与UI怎样融合。",
+      "bestFor": "3D场景、WebGL、英雄区",
+      "caveat": "具体模板和源码权益采用时核验。",
+      "access": "公开浏览，部分Pro",
+      "embedStatus": "blocked",
+      "embedNote": "当前主文档限制为同源嵌入。",
+      "image": "/assets/threeui.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E27",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-21st",
+      "name": "21st",
+      "url": "https://21st.dev/",
+      "categories": [
+        "buildable",
+        "motion"
+      ],
+      "type": "组件资源",
+      "tagline": "社区的组件、主题和模板。",
+      "description": "设计工程师发布的React组件与主题目录。适合按效果搜组件，再核验项目兼容与许可。",
+      "bestFor": "组件细节、模板、主题发现",
+      "caveat": "浏览、取代码和AI生成的权益不同；不承诺全部免费。",
+      "access": "公开浏览，具体权益另查",
+      "embedStatus": "unknown",
+      "embedNote": "本次主文档无禁止头，加载/子页仍需核验。",
+      "image": "/assets/21st.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E29",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-shadcn",
+      "name": "shadcn/ui",
+      "url": "https://ui.shadcn.com/",
+      "categories": [
+        "buildable",
+        "flows"
+      ],
+      "type": "组件资源",
+      "tagline": "好操作的基础组件，从这里开始。",
+      "description": "可组合、可修改的UI组件与示例。它更像实现底座，不是完整艺术风格画廊。",
+      "bestFor": "表单、设置、导航、组件状态",
+      "caveat": "资源类型明确为开发组件，不是所有素材的聚合库。",
+      "access": "公开文档，采用查许可",
+      "embedStatus": "unknown",
+      "embedNote": "未保证所有子页能嵌入。",
+      "image": "/assets/shadcn.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E28",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-inspoai",
+      "name": "InspoAI",
+      "url": "https://www.inspoai.io/",
+      "categories": [
+        "whole",
+        "buildable"
+      ],
+      "type": "设计发现",
+      "tagline": "从灵感进入设计工作流。",
+      "description": "设计发现和辅助创作产品。这里仅把它作为外部来源入口，不连接生成账号或云端项目。",
+      "bestFor": "网站发现、设计方向探索",
+      "caveat": "与纯画廊区分；本站不使用其付费或生成接口。",
+      "access": "公开介绍，服务权益另查",
+      "embedStatus": "blocked",
+      "embedNote": "主页限制为同源嵌入。",
+      "image": "/assets/inspoai.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E30",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-fonts-in-use",
+      "name": "Fonts In Use",
+      "url": "https://fontsinuse.com/",
+      "categories": [
+        "type-color",
+        "graphics"
+      ],
+      "type": "排版档案",
+      "tagline": "看字体如何真的出现在作品里。",
+      "description": "按字体、格式、行业和时期索引的排版案例档案。比只看字体样张更适合判断搭配与语境。",
+      "bestFor": "真实排版、字体搭配、图文关系",
+      "caveat": "字体许可和图片许可各自核验。",
+      "access": "公开浏览",
+      "embedStatus": "unknown",
+      "embedNote": "未保证全部子页能嵌入。",
+      "image": "/assets/fonts-in-use.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E18",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    },
+    {
+      "id": "source-typewolf",
+      "name": "Typewolf",
+      "url": "https://www.typewolf.com/",
+      "categories": [
+        "type-color"
+      ],
+      "type": "排版档案",
+      "tagline": "观察字体选择与组合。",
+      "description": "通过网站与排版观察字体使用、分类和搭配。适合给标题、正文与品牌语气找参考。",
+      "bestFor": "标题/正文字体、排版观察",
+      "caveat": "本轮浏览器核验身份；字体不当然免费。",
+      "access": "公开内容，其他权益另查",
+      "embedStatus": "unknown",
+      "embedNote": "未保证全部子页能嵌入。",
+      "image": "/assets/typewolf.png",
+      "capturedAt": "2026-10-10",
+      "evidence": "E31",
+      "previewKind": "浏览器实拍 · 静态预览",
+      "license": "本地来源导航参考；公开使用前核验截图/商标授权"
+    }
+  ]
+}

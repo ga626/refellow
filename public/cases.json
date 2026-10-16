@@ -1,0 +1,146 @@
+[
+  {
+    "id": "case-21st-1319",
+    "kind": "case",
+    "name": "Animated Background",
+    "author": "ibelick",
+    "url": "https://21st.dev/@ibelick/components/animated-background",
+    "image": "https://cdn.21st.dev/user_motion_primitives/animated-background/default/preview.png",
+    "video": "https://cdn.21st.dev/user_motion_primitives/animated-background/default/video.mp4",
+    "categories": [
+      "motion",
+      "buildable"
+    ],
+    "description": "选中项的背景在导航里滑动。动效不是装饰，而是让状态变化更容易理解。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "导航",
+      "选中反馈",
+      "微交互"
+    ]
+  },
+  {
+    "id": "case-21st-17987",
+    "kind": "case",
+    "name": "Bubble Background",
+    "author": "skyleen77",
+    "url": "https://21st.dev/@skyleen77/components/components-backgrounds-bubble",
+    "image": "https://cdn.21st.dev/skyleen77/components-backgrounds-bubble/default/preview.1784721757057-90c78fd9-82c8-4ca1-8495-1245d75966b6.png",
+    "video": "https://cdn.21st.dev/skyleen77/components-backgrounds-bubble/default/video.1784721757057-90c78fd9-82c8-4ca1-8495-1245d75966b6.mp4",
+    "categories": [
+      "motion",
+      "graphics"
+    ],
+    "description": "跟随指针流动的柔软色团。适合观察背景层如何营造情绪，不必把整页变成彩色。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "流体",
+      "柔和",
+      "鼠标反馈"
+    ]
+  },
+  {
+    "id": "case-21st-8473",
+    "kind": "case",
+    "name": "Interactive Ripple Background",
+    "author": "erikvalencia1",
+    "url": "https://21st.dev/@erikvalencia1/components/interactive-ripple-background",
+    "image": "https://cdn.21st.dev/erikvalencia1/interactive-ripple-background/default/preview.1759611383741.png",
+    "video": "https://cdn.21st.dev/erikvalencia1/interactive-ripple-background/default/video.1759611383741.mp4",
+    "categories": [
+      "motion",
+      "graphics"
+    ],
+    "description": "让鼠标的位置成为水波的起点。借鉴它的空间反馈，而不是只添加一个循环背景。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "水波",
+      "交互",
+      "背景"
+    ]
+  },
+  {
+    "id": "case-21st-7625",
+    "kind": "case",
+    "name": "WaveBackground",
+    "author": "ruixen.ui",
+    "url": "https://21st.dev/@ruixen.ui/components/wave-background",
+    "image": "https://cdn.21st.dev/ruixen.ui/wave-background/default/preview.1758047493621.png",
+    "video": "https://cdn.21st.dev/ruixen.ui/wave-background/default/video.1758047493621.mp4",
+    "categories": [
+      "motion",
+      "graphics"
+    ],
+    "description": "连续流动的波浪场景。观察缓慢环境运动与静态内容如何保持层次。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "波浪",
+      "WebGL",
+      "沉浸"
+    ]
+  },
+  {
+    "id": "case-21st-25",
+    "kind": "case",
+    "name": "Animated Typewriter Text",
+    "author": "anurag-mishra22",
+    "url": "https://21st.dev/@anurag-mishra22/components/text-three",
+    "image": "https://cdn.21st.dev/user_2rdX0nxNZVHvzWonaWWUowA52VG/text-three/default/preview.1787662399502.webp",
+    "video": "https://cdn.21st.dev/user_2rdX0nxNZVHvzWonaWWUowA52VG/text-three/default/video.1787662402747.mp4",
+    "categories": [
+      "type-color",
+      "buildable"
+    ],
+    "description": "逐字出现的文字。适合短标题和演示，长文与高频操作不宜反复播放。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "打字机",
+      "文字",
+      "节奏"
+    ]
+  },
+  {
+    "id": "case-21st-23962",
+    "kind": "case",
+    "name": "Glitch Text Animation",
+    "author": "daiwiikharihar",
+    "url": "https://21st.dev/@daiwiikharihar/components/glitch-text-animation",
+    "image": "https://cdn.21st.dev/user_332oxzW8MyPod4IDIdKq9rbPYuk/glitch-text-animation/default/preview.1785741843932.png",
+    "video": "https://cdn.21st.dev/user_332oxzW8MyPod4IDIdKq9rbPYuk/glitch-text-animation/default/video.1785741859082.mp4",
+    "categories": [
+      "type-color",
+      "buildable"
+    ],
+    "description": "带 RGB 错位和字符扰动的数字字体。风格鲜明，适合有明确语境的局部表达。",
+    "source": "21st",
+    "status": "catalog_preview",
+    "user_accepted": false,
+    "license_status": "not_verified",
+    "observation": "native_catalog_metadata_not_full_effect_audit",
+    "tags": [
+      "故障风",
+      "字体",
+      "实验"
+    ]
+  }
+]

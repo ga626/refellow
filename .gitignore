@@ -7,6 +7,7 @@
 /部署/
 /public/assets/collector.zip
 /.21st/
+/.wrangler/
 /.impeccable/*
 !/.impeccable/design.json
 !/.impeccable/config.json

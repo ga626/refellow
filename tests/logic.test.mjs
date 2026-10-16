@@ -1,0 +1,13 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {safeURL,validateCaseURL,filterItems,loadState,makeSelection,escapeHTML} from '../public/lib.js';
+const cases=[{id:'a',kind:'case',name:'水波',url:'https://example.com/work/a',categories:['motion'],tags:['背景'],description:'鼠标交互'},{id:'b',kind:'case',name:'字体',url:'https://example.com/work/b',categories:['type-color'],tags:[],description:'动态文字'},{id:'s',kind:'source',name:'来源',url:'https://catalog.com/',categories:['whole'],tags:[]}];
+test('拒绝危险协议、URL凭据和敏感参数',()=>{for(const value of ['javascript:alert(1)','file:///a','https://user:password@example.com','https://example.com/?api_key=secret'])assert.throws(()=>safeURL(value));assert.equal(safeURL('https://example.com/work'),'https://example.com/work');});
+test('来源首页不能作为具体参考',()=>{assert.throws(()=>validateCaseURL('https://www.catalog.com/',[cases[2]]));assert.equal(validateCaseURL('https://catalog.com/works/a',[cases[2]]),'https://catalog.com/works/a');});
+test('分类、搜索、类型、收藏组合过滤',()=>{assert.equal(filterItems(cases,{query:'鼠标 背景',category:'motion',kind:'case'}).length,1);assert.equal(filterItems(cases,{category:'type-color',saved:['a']}).length,0);assert.equal(filterItems(cases,{kind:'source'}).length,1);});
+test('坏存储和禁止存储不崩溃',()=>{assert.ok(loadState({getItem:()=>'{bad'}).error);assert.ok(loadState({getItem:()=>{throw new Error('denied')}}).error);assert.deepEqual(loadState({getItem:()=>null}).value.selected,[]);});
+test('存储中注入危险参考会被丢弃',()=>{const result=loadState({getItem:()=>JSON.stringify({saved:[],selected:[],notes:{},custom:[{id:'x',name:'bad',kind:'case',url:'javascript:alert(1)',categories:[]}]})});assert.equal(result.value.custom.length,0);});
+test('选择包严格1至5项且一个主方向',()=>{assert.throws(()=>makeSelection(cases,[],{},'hash'));assert.throws(()=>makeSelection(cases,['s'],{},'hash'));assert.throws(()=>makeSelection(cases,['a','b'],{a:{role:'main'},b:{role:'main'}},'hash'));const pack=makeSelection(cases,['a','b'],{a:{role:'main',like:'水波'}},'hash');assert.equal(pack.schema,'frontend-reference-selection/v1');assert.equal(pack.references.length,2);assert.equal(pack.permanent_preference_written,false);assert.equal(pack.references[0].user_accepted,false);});
+test('文本输出转义HTML',()=>assert.equal(escapeHTML('<script>"&'),'&lt;script&gt;&quot;&amp;'));
+test('可按来源和作者检索具体效果',()=>{const demo={...cases[0],source:'21st',author:'someone'};assert.equal(filterItems([demo],{query:'21st'}).length,1);assert.equal(filterItems([demo],{query:'someone'}).length,1);});
+test('选择包拒绝重复项与未知角色',()=>{assert.throws(()=>makeSelection(cases,['a','a'],{},'hash'));assert.throws(()=>makeSelection(cases,['a'],{a:{role:'unknown'}},'hash'));});
