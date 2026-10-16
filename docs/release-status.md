@@ -2,7 +2,7 @@
 
 开发preview.refellow.pages.dev已部署21fe72e72f7af847efe9a81ef83313cadde93d56，包摘要a262cd27bf2a778c94bcd20ea2d1dfc27f4a372767da70f92530c8b3d47c5660；正式refellow.pages.dev仍为bff20eaae71febff3c73dde4affad598fd74a3b3。原有两个数据库和认证配置保留，资料隔离。
 
-开发版已可无验证码注册、生成个人恢复密钥并找回密码。真实API注册、采集会话、媒体上传／读取、找回及旧身份撤销通过；72个公开文件核对通过，正式部署ID和摘要未变。邮件未开通，真实网页及Edge体验待用户验收。
+开发版已可无验证码注册、生成个人恢复密钥并找回密码。真实API注册、采集会话、媒体上传／读取、找回及旧身份撤销通过；72个公开文件核对通过，正式部署ID和摘要未变。2026-10-16开发环境已接通Brevo并验证真实收件，新增默认邮箱注册／找回且保留密钥备用；最新开发部署身份见local/verification/pages-deployment/preview.json。正式环境邮件未启用，真实用户绑定／重置和Edge体验待用户验收。
 
 当前继续codex/collector-floating-edge，本轮仅本地提交并更新开发版，没有GitHub推送或PR操作；PR #2仍未合并main，未创建GitHub Release或提交Edge审核。扩展仍为0.5.5，固定加载路径不变，本轮无需重新加载。
 

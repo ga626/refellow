@@ -24,7 +24,7 @@ export function mountRecoveryKey(content,{code,username,close,onDone}){
  check.onchange=()=>done.disabled=!check.checked;done.onclick=()=>{dialog.removeEventListener('close',cleanup);cleanup();onDone();};field.focus();field.select();
 }
 export function mountAuthForm(content,{api,onAuthenticated,onComplete,heading,description,environment,close}){
- let mode='login',busy=false,ready=false,emailReady=false,resendAt=0;
+ let mode='login',busy=false,ready=false,emailReady=false,resendAt=0,registerByEmail=true;
  const tabs=document.createElement('div');tabs.className='auth-switch';tabs.setAttribute('role','group');tabs.setAttribute('aria-label','登录或注册');
  tabs.innerHTML='<button type="button" data-mode="login" aria-pressed="true">登录</button><button type="button" data-mode="register" aria-pressed="false">注册账户</button>';
  const form=document.createElement('form');form.className='auth-form';form.noValidate=true;
@@ -33,6 +33,8 @@ export function mountAuthForm(content,{api,onAuthenticated,onComplete,heading,de
  const recovery=document.createElement('div');recovery.dataset.recovery='';recovery.className='auth-recovery-field';recovery.hidden=true;recovery.innerHTML='<label for="auth-recovery">个人恢复密钥</label><input id="auth-recovery" name="recoveryCode" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="80" placeholder="粘贴你保存的恢复密钥" aria-describedby="recoveryCode-hint recoveryCode-error"><p class="auth-hint" id="recoveryCode-hint">注册或在账户设置生成的个人密钥，使用后会换成新密钥。</p><p class="auth-field-error" id="recoveryCode-error"></p>';form.querySelector('[data-code]').before(recovery);
  const emailReset=document.createElement('button');emailReset.type='button';emailReset.className='auth-link';emailReset.textContent='改用已验证邮箱找回';emailReset.hidden=true;form.querySelector('.auth-footnote').before(emailReset);
  form.querySelector('.auth-footnote').firstChild.textContent='个人恢复密钥仅用于找回账户。';content.append(tabs,form);
+ const registerMethod=document.createElement('button');registerMethod.type='button';registerMethod.className='auth-link';registerMethod.hidden=true;form.querySelector('.auth-footnote').before(registerMethod);
+ const emailRegistration=()=>mode==='register'&&emailReady&&registerByEmail;
  const input=name=>form.elements.namedItem(name),error=form.querySelector('.auth-error'),submit=form.querySelector('[type=submit]'),send=form.querySelector('[data-send]'),notice=form.querySelector('.auth-mail-status');
  const label=()=>mode==='login'?'登录':mode==='register'?'创建账户':'重设密码并登录';
  function clearErrors(){error.textContent='';form.querySelectorAll('.auth-field-error').forEach(el=>el.textContent='');form.querySelectorAll('[aria-invalid]').forEach(el=>el.removeAttribute('aria-invalid'));}
@@ -40,15 +42,17 @@ export function mountAuthForm(content,{api,onAuthenticated,onComplete,heading,de
  const timer=setInterval(tick,1000),dialog=content.closest('dialog');dialog.addEventListener('close',()=>clearInterval(timer),{once:true});
  function setMode(next){
   if(busy)return;mode=next;clearErrors();notice.textContent='';for(const name of ['password','confirmPassword','code','recoveryCode'])input(name).value='';input('password').type='password';form.querySelector('.auth-visibility').textContent='显示';form.querySelector('.auth-visibility').setAttribute('aria-pressed','false');form.querySelector('.auth-visibility').setAttribute('aria-label','显示密码');
-  const login=mode==='login',reset=mode==='reset',recover=mode==='recover',finding=reset||recover;heading.textContent=finding?'找回密码':login?'欢迎回到参伴':'创建你的参伴账户';description.textContent=recover?'已有账户忘记密码时，才需要输入保存过的恢复密钥。':reset?'验证邮箱后设置新密码，原有收藏会保留。':login?'登录一次，网页与采集器就能一起使用。':'只需设置账号和密码，注册成功后会自动生成恢复密钥。';
+  const login=mode==='login',reset=mode==='reset',recover=mode==='recover',finding=reset||recover,mailRegister=emailRegistration(),usesCode=reset||mailRegister;heading.textContent=finding?'找回密码':login?'欢迎回到参伴':'创建你的参伴账户';description.textContent=recover?'已有账户忘记密码时，才需要输入保存过的恢复密钥。':reset?'验证邮箱后设置新密码，原有收藏会保留。':login?'登录一次，网页与采集器就能一起使用。':mailRegister?'验证邮箱并设置密码，之后可通过邮件找回。':'只需设置账号和密码，注册成功后会自动生成恢复密钥。';
   tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)));
-  recovery.hidden=!recover;form.querySelector('[data-code]').hidden=!reset;form.querySelector('[data-confirm]').hidden=login;
-  input('code').required=reset;input('recoveryCode').required=recover;input('confirmPassword').required=!login;input('password').autocomplete=login?'current-password':'new-password';
+  recovery.hidden=!recover;form.querySelector('[data-code]').hidden=!usesCode;form.querySelector('[data-confirm]').hidden=login;
+  input('code').required=usesCode;input('recoveryCode').required=recover;input('confirmPassword').required=!login;input('password').autocomplete=login?'current-password':'new-password';
   form.querySelector('[data-recover]').textContent=finding?'返回登录':'忘记密码？';form.querySelector('[data-recover]').hidden=mode==='register';emailReset.hidden=!finding||!emailReady;emailReset.textContent=recover?'改用已验证邮箱找回':'改用个人恢复密钥找回';
-  form.querySelector('label[for=auth-email]').textContent=reset?'已验证邮箱':'账号';input('email').inputMode=reset?'email':'text';form.querySelector('#email-hint').textContent=reset?'仅支持已经验证并绑定的邮箱。':mode==='register'?'用户名、邮箱或手机号均可作为账号，不需要验证码。':'请输入注册时使用的用户名、邮箱或手机号。';form.querySelector('#password-hint').textContent=login?'':'12–128个字符，可以使用容易记住的短语。';form.querySelector('label[for=auth-password]').textContent=finding?'新密码':'密码';
+  form.querySelector('label[for=auth-email]').textContent=reset?'已验证邮箱':mailRegister?'邮箱':'账号';input('email').inputMode=usesCode?'email':'text';form.querySelector('#email-hint').textContent=reset?'仅支持已经验证并绑定的邮箱。':mailRegister?'填写你的邮箱，验证码用于确认邮箱归你所有。':mode==='register'?'用户名、邮箱或手机号均可作为账号，不需要验证码。':'请输入注册时使用的用户名、邮箱或手机号。';form.querySelector('#password-hint').textContent=login?'':'12–128个字符，可以使用容易记住的短语。';form.querySelector('label[for=auth-password]').textContent=finding?'新密码':'密码';
+  registerMethod.hidden=mode!=='register'||!emailReady;registerMethod.textContent=registerByEmail?'改用账号注册，保存恢复密钥':'改用邮箱验证注册';form.querySelector('.auth-footnote').firstChild.textContent=usesCode?'仅用于登录和你主动请求的账户邮件。':'个人恢复密钥仅用于找回账户。';
   form.querySelector('#caps-hint').hidden=true;submit.disabled=!ready||(reset&&!emailReady);submit.textContent=ready?label():'等待账户服务';tick();
  }
- tabs.onclick=e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.mode);};form.querySelector('[data-recover]').onclick=()=>setMode(['recover','reset'].includes(mode)?'login':'recover');emailReset.onclick=()=>setMode(mode==='recover'?'reset':'recover');
+ registerMethod.onclick=()=>{if(busy)return;registerByEmail=!registerByEmail;setMode('register');};
+ tabs.onclick=e=>{const b=e.target.closest('[data-mode]');if(b)setMode(b.dataset.mode);};form.querySelector('[data-recover]').onclick=()=>setMode(['recover','reset'].includes(mode)?'login':emailReady?'reset':'recover');emailReset.onclick=()=>setMode(mode==='recover'?'reset':'recover');
  form.querySelector('.auth-visibility').onclick=e=>{const show=input('password').type==='password';input('password').type=show?'text':'password';e.target.textContent=show?'隐藏':'显示';e.target.setAttribute('aria-pressed',String(show));e.target.setAttribute('aria-label',show?'隐藏密码':'显示密码');};
  for(const event of ['keydown','keyup'])input('password').addEventListener(event,e=>{form.querySelector('#caps-hint').hidden=!e.getModifierState?.('CapsLock');});
  form.addEventListener('input',e=>{e.target.removeAttribute('aria-invalid');const field=form.querySelector('#'+e.target.name+'-error');if(field)field.textContent='';error.textContent='';});
@@ -60,9 +64,9 @@ export function mountAuthForm(content,{api,onAuthenticated,onComplete,heading,de
  };
  form.onsubmit=async e=>{
   e.preventDefault();e.stopImmediatePropagation();if(busy||!ready||(mode==='reset'&&!emailReady))return;clearErrors();
-  const values=Object.fromEntries(new FormData(form)),invalid=credentialError(values,mode==='register'?'register-key':mode);
+  const values=Object.fromEntries(new FormData(form)),invalid=credentialError(values,mode==='register'?(emailRegistration()?'register':'register-key'):mode);
   if(invalid){form.querySelector('#'+invalid.field+'-error').textContent=invalid.message;input(invalid.field).setAttribute('aria-invalid','true');input(invalid.field).focus();return;}
-  const identifier=String(values.email).normalize('NFKC').trim().toLowerCase(),body=mode==='reset'?{email:identifier,password:values.password,code:values.code}:{username:identifier,password:values.password,...(mode==='register'?{recoveryMethod:'key'}:{}),...(mode==='recover'?{recoveryCode:values.recoveryCode}:{})};
+  const identifier=String(values.email).normalize('NFKC').trim().toLowerCase(),body=mode==='reset'||emailRegistration()?{email:identifier,password:values.password,code:values.code}:{username:identifier,password:values.password,...(mode==='register'?{recoveryMethod:'key'}:{}),...(mode==='recover'?{recoveryCode:values.recoveryCode}:{})};
   lock(true);submit.textContent='正在处理…';try{const result=await(await api(mode==='reset'?'/password/reset':'/'+mode,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();for(const name of ['password','confirmPassword','code','recoveryCode'])input(name).value='';const warning=await onAuthenticated(result);lock(false);clearInterval(timer);onComplete(result,warning);}catch(e){error.textContent=e.message;error.focus();}finally{if(form.isConnected){lock(false);submit.textContent=label();}}
  };
  async function checkService(){
