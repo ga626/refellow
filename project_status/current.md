@@ -3,9 +3,9 @@
 ## 当前任务
 
 - 用户已确认：日常在当前分支修改、定向检查、本地提交并及时更新开发版，无需逐次确认。仅明确说推送PR后才推送、PR、CI、合并和正式上线。
-- 当前分支codex/collector-floating-edge；恢复密钥注册修复已交付开发版，源码21fe72e72f7af847efe9a81ef83313cadde93d56，包摘要a262cd27bf2a778c94bcd20ea2d1dfc27f4a372767da70f92530c8b3d47c5660。开发入口支持无PR的干净分支构建，正式入口继续要求已合并的PR候选。
+- 当前分支codex/collector-floating-edge；最新开发版邮件界面源码6a3c111a4dd903b75c19f89c273cd3ba8dd31714，包摘要58241d65f3d6dcce6b734300c9eb9bfd94bab0efe8bc9e6c4d2968cee7704d78。开发入口支持无PR的干净分支构建，正式入口继续要求已合并的PR候选。
 - 部署入口24项定向检查通过；原账号／找回19项检查已通过。冻结worker及开发版真实API已验证注册、采集媒体保存、密钥找回、旧身份撤销及原媒体逐字节保留。测试账号已清理，未操作已有账号。
-- 部署回执local/verification/pages-deployment/preview.json已verified，部署ID d7a55825-692d-4446-b526-e824db8c3772，72个公开文件摘要匹配；正式部署ID及摘要前后未变。本轮未推送GitHub、操作PR、更新正式版或扩展。
+- 最新部署ID 2a75a66c-6e84-47c5-85ce-9fae78db77a1。Wrangler上传成功后未退出，原preview.json保留upload-result-unknown；独立只读补验preview-verification.json已verified：远端部署身份、4个变更／身份文件、安全响应头、404和邮件就绪通过，正式部署ID与摘要未变。本轮72文件全量公网检查因未改动的sidepanel.js连接重置未完成，不冒充全量通过。本轮未推送GitHub、操作PR、更新正式版或扩展。
 - 首次核对发现Pages的HTML规范地址跳转未被验证器接受，已在新提交修复并重新部署；新旧构建仅源码身份和发布摘要变化，应用与worker字节相同，账号接口证据按摘要复用。证据local/verification/workflow-preview-2026-10-16。
 
 ## 固定入口与数据
@@ -23,7 +23,7 @@
 - 本地检查覆盖注册、找回、媒体保留和实际Pages worker；不能代替线上完整使用链或真实Edge体验验收。
 - 2026-10-16 Brevo工单#5619776已由客服人工完成验证；用户生成受限邮件密钥，已配置preview，真实验证码已进入163收件箱。production未启用，不使用个人163 SMTP，不升级付费。
 - 本轮恢复邮件就绪时的默认邮箱注册和邮件找回，保留账号注册及恢复密钥备用；旧账号在账户设置绑定邮箱。19项定向检查通过，浏览器已核对注册方式及找回方式切换。实际邮箱绑定／密码重置待本人验收，未修改用户密码；测试邮箱与已有账号冲突返回409，空测试账号已清理。
-- 邮件任务的配置、收件和清理证据在local/verification/mail-setup，最新开发部署源码及包摘要以local/verification/pages-deployment/preview.json为准；不以工具超时推断部署或发信失败。
+- 邮件任务的配置、收件、页面截图和清理证据在local/verification/mail-setup；最新开发部署身份及核对范围以local/verification/pages-deployment/preview-verification.json为准，原上传超时回执保留。本机5192和临时表单服务已停止，密钥中转文件已删除。
 
 ## 采集器与后续顺序
 
