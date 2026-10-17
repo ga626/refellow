@@ -1,41 +1,22 @@
-# 当前状态（2026-10-16）
+# 当前状态（2026-10-17）
 
-## 当前任务
+## 已交付
 
-- 用户已确认：日常在当前分支修改、定向检查、本地提交并及时更新开发版，无需逐次确认。仅明确说推送PR后才推送、PR、CI、合并和正式上线。
-- 当前分支codex/collector-floating-edge；最新开发版邮件界面源码6a3c111a4dd903b75c19f89c273cd3ba8dd31714，包摘要58241d65f3d6dcce6b734300c9eb9bfd94bab0efe8bc9e6c4d2968cee7704d78。开发入口支持无PR的干净分支构建，正式入口继续要求已合并的PR候选。
-- 部署入口24项定向检查通过；原账号／找回19项检查已通过。冻结worker及开发版真实API已验证注册、采集媒体保存、密钥找回、旧身份撤销及原媒体逐字节保留。测试账号已清理，未操作已有账号。
-- 最新部署ID 2a75a66c-6e84-47c5-85ce-9fae78db77a1。Wrangler上传成功后未退出，原preview.json保留upload-result-unknown；独立只读补验preview-verification.json已verified：远端部署身份、4个变更／身份文件、安全响应头、404和邮件就绪通过，正式部署ID与摘要未变。本轮72文件全量公网检查因未改动的sidepanel.js连接重置未完成，不冒充全量通过。本轮未推送GitHub、操作PR、更新正式版或扩展。
-- 首次核对发现Pages的HTML规范地址跳转未被验证器接受，已在新提交修复并重新部署；新旧构建仅源码身份和发布摘要变化，应用与worker字节相同，账号接口证据按摘要复用。证据local/verification/workflow-preview-2026-10-16。
+- 产品 PR #2 已于 2026-10-16 合并；main / v0.5.5 为 e7a54b83dc651ef701e9a913b9c392fcf4c6130d。quality CI 38931498688 成功，冻结源码为 711871f95d76dfdb3d08bf9704d3fd31714924f2。
+- 正式站 https://refellow.pages.dev/，开发站 https://preview.refellow.pages.dev/。同一已验候选分别部署，两站账号、收藏和媒体隔离。正式部署 3ea972cd-1634-4c6e-aeb3-f1e1660581f0；开发部署 364d9814-59aa-403f-a486-95899e23d836。Pages 包摘要 297f82f24406e8dc9e4611673aba6c402ffd673c9593046a36692a7012f58e4e。
+- GitHub Release v0.5.5 已建立。扩展 ZIP 为 153923 bytes，SHA-256 74b2306420688c6d7b0e0a3e66e430b701bb127c4f63980795c0e8a771db460c。验收目录仍为 local/acceptance/current/edge-extension。
+- Edge 商城后台与公开详情页均已确认版本 0.5.5、Live / Public，产品 b7512a08-0a17-44f5-b7e0-b5b44a66c881，CRX ID ahoahhmbphieigiefgceeoebfdijlcih。用户确认已通过 Edge 商城安装；不能据此宣称截图、录像和云端保存全部体验通过。
 
-## 固定入口与数据
+## 邮件核对
 
-- 开发版：https://preview.refellow.pages.dev/；原DB为refellow-preview。
-- 正式版：https://refellow.pages.dev/；原DB为refellow-production。
-- 两站账户和资料隔离，原AUTH_PEPPER保留；5192仅本机按需调试，默认停止。
-- 本轮部署前两站均为bff20ea；此前相同源于换址时人工上传同一包，没有发现preview自动同步正式版的链路。
-- 2026-10-16按用户要求清理旧注册与登录：开发库2账号、5会话、2份媒体及旧验证码／限流记录已清空；5192本机3账号及会话已清空。操作前完整备份并验证SQLite完整性、记录数量及媒体摘要；正式库仍0账号，未写入。回执及唯一一组清理备份在local/verification/account-reset-2026-10-16；这是清理时刻状态，用户随后新注册不在清理范围。
+- 2026-10-17 实查 Cloudflare：两环境均有 secret_text 类型的 BREVO_API_KEY、MAIL_FROM、AUTH_PEPPER；原 DB 绑定及正式部署身份保持。
+- 两站 /api/status 均 ready=true、emailReady=true。分别调用验证码接口均 HTTP 200，Brevo 日志对应两封“参伴 · 邮箱验证”均 Delivered。仅验证投递，未改变用户账号或密码；本轮未验证完整邮件找回流程。
+- 既有两把密钥此前显示为 Refellow account emails、Refellow production account emails。Cloudflare 不返回秘密原文，不能仅凭名称证明对应关系，也不能把开发密钥当作废弃密钥。当前未生成、替换或停用密钥；密钥列表重新打开后核对使用记录。此前“production未启用邮件”“商城尚未提交”等记录已过期。
+- 发信在 Cloudflare 服务端执行，用户电脑不承担邮件发送。不得改用个人 163 SMTP 或自动升级付费。
 
-## 账号与找回
+## 验收边界与保留事项
 
-- 已实现无验证码的账号＋密码注册，账号支持用户名、邮箱或手机号（只作账号名，不代表已验证）。注册后自动生成一次展示的个人恢复密钥，可复制／下载保存。
-- 找回输入账号、密钥和新密码；成功轮换密钥、撤销旧网站及采集会话，保留用户ID、收藏和媒体。旧账号可用当前密码生成或更换密钥，不引入连接码。
-- 本地检查覆盖注册、找回、媒体保留和实际Pages worker；不能代替线上完整使用链或真实Edge体验验收。
-- 2026-10-16 Brevo工单#5619776已由客服人工完成验证；用户生成受限邮件密钥，已配置preview，真实验证码已进入163收件箱。production未启用，不使用个人163 SMTP，不升级付费。
-- 本轮恢复邮件就绪时的默认邮箱注册和邮件找回，保留账号注册及恢复密钥备用。19项定向检查通过，浏览器已核对方式切换。此前绑定测试邮箱与旧账号冲突返回409；按用户要求清理旧账号后邮箱已释放，已打开开发版空白邮箱注册表单，等待本人重新注册／登录及密码找回验收。
-- 邮件任务的配置、收件、页面截图和清理证据在local/verification/mail-setup；最新开发部署身份及核对范围以local/verification/pages-deployment/preview-verification.json为准，原上传超时回执保留。本机5192和临时表单服务已停止，密钥中转文件已删除。
-
-## 采集器与后续顺序
-
-1. 开发版注册、登录、密钥找回与保存／读取的线上API链已通过；用户刷新开发版，验收实际表单和密钥保存体验。
-2. 真实Edge验证黄页自动小球、其他站手动开启、截图框选、区域／整页录制、停止、自动关联账号和上传；发现问题继续当前分支修复并更新开发版。
-3. 用户明确说推送PR后，推进PR #2及CI、冻结正式候选、验收、合并和正式交付。Edge商城提交须明确纳入。
-
-扩展当前仍是0.5.5，加载local/acceptance/current/edge-extension，previous为0.5.4；本轮只改网站，无需重新加载扩展。扩展ZIP摘要fe3f8f36203795922121bd8027765b6bc782e64d2bd91f45d94c00acc50f33fb。Edge草稿尚未提交审核，不能称商城可安装或自动更新；GitHub Release尚未创建。
-
-## 保留事项
-
-- 云端手动部署工作流未推送启用；当前只使用本机受管部署入口，不声称账号管理员直传权限被锁死。
-- 旧lingganji项目保留作已安装扩展信任与旧浏览器资料过渡，不是日常第三入口；未完成旧资料核对前不删除。
-- 清理记录及迁移连续性证据在local/verification/environment-cleanup和domain-migration；数据库及服务配置保留，旧账号资料以account-reset-2026-10-16备份为准。保留当前／上一版扩展及唯一迁移备份。
-- 详细开发与验收步骤见docs/development-workflow.md，部署说明见docs/pages-deployment.md。
+- 用户已确认商城安装通路；最终版本的真实框选截图、区域／整页录像、账户自动关联、上传与播放，仍待实际体验确认。邮箱注册／找回的完整用户操作亦未记录通过。
+- 旧 lingganji 项目及迁移备份保留，未核对旧入口与资料前不删除。此前账号清理仅对应 2026-10-16 已授权范围，不包含此后用户新建账号。5192 默认停止。
+- 本轮收尾证据在 local/verification/release-0.5.5：发布／部署回执、mail-config-audit.json、mail-send-check.json、brevo-delivered-2026-10-17.jpg。秘密与私有证据不入 Git。
+- 日常开发继续遵循既有分支 → 定向检查／本地提交 → 更新开发站 → 用户明确启动 PR → CI／合并 → 提升正式候选。仅整理状态文档不重新发布网站或扩展。
