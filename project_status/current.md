@@ -11,7 +11,7 @@
 
 - 2026-10-17 实查 Cloudflare：两环境均有 secret_text 类型的 BREVO_API_KEY、MAIL_FROM、AUTH_PEPPER；原 DB 绑定及正式部署身份保持。
 - 两站 /api/status 均 ready=true、emailReady=true。分别调用验证码接口均 HTTP 200，Brevo 日志对应两封“参伴 · 邮箱验证”均 Delivered。仅验证投递，未改变用户账号或密码；本轮未验证完整邮件找回流程。
-- 既有两把密钥此前显示为 Refellow account emails、Refellow production account emails。Cloudflare 不返回秘密原文，不能仅凭名称证明对应关系，也不能把开发密钥当作废弃密钥。当前未生成、替换或停用密钥；密钥列表重新打开后核对使用记录。此前“production未启用邮件”“商城尚未提交”等记录已过期。
+- 既有两把密钥此前显示为 Refellow account emails、Refellow production account emails。Cloudflare 不返回秘密原文，不能仅凭名称证明对应关系，也不能把开发密钥当作废弃密钥。两环境实际发信正常，现有密钥保留，不再为清理而生成或轮换。对应关系仍未证明，日后轮换前须先核实；不是使用邮件的前置条件。此前“production未启用邮件”“商城尚未提交”等记录已过期。
 - 发信在 Cloudflare 服务端执行，用户电脑不承担邮件发送。不得改用个人 163 SMTP 或自动升级付费。
 
 ## 验收边界与保留事项
